@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--label:#000;--secondary:rgba(60,60,67,.6);--tertiary:rgba(60,60,67,.3);
+--sep:rgba(60,60,67,.18);--tint:#007aff;--fill:rgba(118,118,128,.12);--danger:#ff3b30}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);box-shadow:0 .5px 0 var(--sep);display:flex;align-items:center;
+padding:0 8px;gap:8px;overflow-x:auto;overflow-y:hidden;font-family:-apple-system,system-ui,sans-serif}
+body::-webkit-scrollbar{display:none}
+.pill{flex:none;height:32px;padding:0 16px;border-radius:16px;background:var(--fill);color:var(--label);
+display:flex;align-items:center;font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer;
+transition:background-color .18s ease,color .18s ease}
+.pill:active{opacity:.55}
+.pill.on{background:var(--tint);color:#fff}
+.pill.add{background:#34c759;color:#fff}
+</style></head><body>
+<script>
+var LONG=null;
+function renderTabs(list,current){
+  document.body.innerHTML='';
+  list.forEach(function(d){
+    var b=document.createElement('div');
+    b.className='pill'+(d.url===current?' on':'');
+    b.textContent=d.name||'TV';
+    b.addEventListener('touchstart',function(){
+      b.style.opacity='.55';
+      LONG=setTimeout(function(){LONG=null;Android.rename(d.url,d.name);},550);
+    },{passive:true});
+    b.addEventListener('touchend',function(){
+      b.style.opacity='';
+      if(LONG){clearTimeout(LONG);LONG=null;Android.open(d.url);}
+    });
+    b.addEventListener('touchmove',function(){
+      if(LONG){clearTimeout(LONG);LONG=null;b.style.opacity='';}
+    });
+    b.oncontextmenu=function(e){e.preventDefault();return false;};
+    document.body.appendChild(b);
+  });
+  var a=document.createElement('div');
+  a.className='pill add';a.textContent='+ 添加';
+  a.addEventListener('touchend',function(){Android.add();});
+  document.body.appendChild(a);
+}
+Android.ready();
+</script></body></html>

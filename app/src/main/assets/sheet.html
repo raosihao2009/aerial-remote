@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--label:#000;--secondary:rgba(60,60,67,.6);--tertiary:rgba(60,60,67,.3);
+--sep:rgba(60,60,67,.18);--tint:#007aff;--fill:rgba(118,118,128,.12);--danger:#ff3b30;
+--scrim:rgba(0,0,0,.32);--sheet:#f2f2f7}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif;background:transparent}
+.scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;transition:opacity .2s ease}
+.scrim.open{opacity:1}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--sheet);border-radius:14px 14px 0 0;
+padding:8px 16px 24px;transform:translateY(100%);transition:transform .2s cubic-bezier(.32,.72,0,1);
+max-height:88%;overflow-y:auto}
+.sheet.open{transform:none;transition:transform .38s cubic-bezier(.32,.72,0,1)}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--tertiary);margin:0 auto 14px}
+h3{text-align:center;font-size:17px;font-weight:600;margin:0 0 16px;color:var(--label)}
+.list{background:var(--card);border-radius:12px;overflow:hidden}
+.list+.list{margin-top:10px}
+.item{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:11px 16px;
+border:0;background:none;text-align:left;font-size:16px;color:var(--label);font-family:inherit;
+transition:background-color .2s ease;cursor:pointer}
+.item+.item::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.item:active{background:var(--fill);transition-duration:0s}
+.item.center{justify-content:center;font-weight:500}
+.item.tint{color:var(--tint)}
+.item.danger{color:var(--danger)}
+.item.strong{font-weight:600}
+.item:disabled{color:var(--tertiary)}
+.item:disabled:active{background:none}
+input{width:100%;border:0;background:none;outline:none;font-size:16px;color:var(--label);
+padding:13px 16px;font-family:inherit}
+input::placeholder{color:var(--tertiary)}
+.foot{color:var(--secondary);font-size:13px;margin:10px 4px 0;line-height:1.4}
+</style></head><body>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+<div class="grab" id="grab"></div>
+<h3 id="title">添加TV设备</h3>
+<div class="list" id="row1"><input id="url" placeholder="设备地址，如 192.168.1.4:8791" inputmode="url"></div>
+<div class="list" id="row2"><input id="name" placeholder="设备名称，如 当贝盒子"></div>
+<div class="foot" id="foot">填写电视局域网地址和名称，地址会自动使用 HTTPS。</div>
+<div class="list" id="btnOk"><button class="item center strong tint" id="ok" disabled>确定</button></div>
+<div class="list" id="btnDel" style="display:none"><button class="item center danger">从列表删除</button></div>
+<script>
+var P={};
+location.search.replace(/^\?/,'').split('&').forEach(function(kv){
+  if(!kv)return;var a=kv.split('=');P[decodeURIComponent(a[0])]=decodeURIComponent(a[1]||'');
+});
+var mode=P.mode||'add';
+var urlInput=document.getElementById('url');
+var nameInput=document.getElementById('name');
+var ok=document.getElementById('ok');
+function norm(v){
+  v=(v||'').trim();
+  if(!v)return'';
+  if(!/^https?:\/\//.test(v)&&!/^[\w.-]+(:\d+)?(\/|$)/.test(v))return'';
+  if(!/^https?:\/\//.test(v))v='https://'+v;
+  v=v.replace(/^http:\/\//,'https://').replace(':8790',':8791');
+  if(v.charAt(v.length-1)!=='/')v+='/';
+  return v;
+}
+function check(){
+  ok.disabled=!(norm(urlInput.value)&&nameInput.value.trim());
+}
+function show(){
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+function hide(){
+  document.getElementById('scrim').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  setTimeout(function(){Android.close();},220);
+}
+if(mode==='rename'){
+  document.getElementById('title').textContent='编辑设备';
+  document.getElementById('row1').style.display='none';
+  document.getElementById('foot').textContent='改个名字，或把这台电视从列表里删掉。';
+  document.getElementById('btnDel').style.display='';
+  nameInput.value=P.name||'';
+  ok.disabled=false;
+}else{
+  urlInput.value='';
+  nameInput.value='';
+  ok.disabled=true;
+}
+urlInput.addEventListener('input',check);
+nameInput.addEventListener('input',check);
+ok.addEventListener('click',function(){
+  if(mode==='rename'){
+    Android.renameSave(P.url,nameInput.value.trim());
+  }else{
+    Android.save(norm(urlInput.value),nameInput.value.trim());
+  }
+  hide();
+});
+document.querySelector('#btnDel button').addEventListener('click',function(){
+  Android.remove(P.url);hide();
+});
+document.getElementById('scrim').addEventListener('click',hide);
+var sy=0,dy=0,sheet=document.getElementById('sheet'),grab=document.getElementById('grab');
+grab.addEventListener('touchstart',function(e){sy=e.touches[0].clientY;sheet.style.transition='none';},{passive:true});
+grab.addEventListener('touchmove',function(e){
+  dy=Math.max(0,e.touches[0].clientY-sy);
+  sheet.style.transform='translateY('+dy+'px)';
+},{passive:true});
+grab.addEventListener('touchend',function(){
+  sheet.style.transition='';
+  if(dy>80){sheet.style.transform='';hide();}
+  else{sheet.style.transform='';}
+  dy=0;
+});
+setTimeout(show,30);
+</script></body></html>
