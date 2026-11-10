@@ -125,7 +125,7 @@ public class MainActivity extends Activity {
             .setPositiveButton("连接", (d, w) -> {
                 String url = input.getText().toString().trim();
                 if (url.isEmpty()) return;
-                if (!url.startsWith("http")) url = "http://" + url;
+                if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://" + url;
                 List<String> devices = getDevices();
                 if (!devices.contains(url)) {
                     devices.add(url);
