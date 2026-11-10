@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
                 filePathCallback = cb;
                 Intent i = params.createIntent();
-                try { startActivityForResult(i, 200); } catch (e) { return false; }
+                try { startActivityForResult(i, 200); } catch (Exception e) { return false; }
                 return true;
             }
         });
