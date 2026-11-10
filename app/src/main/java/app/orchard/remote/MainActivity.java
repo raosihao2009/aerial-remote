@@ -135,24 +135,42 @@ public class MainActivity extends Activity {
             btn.setText(getName(url));
             btn.setAllCaps(false);
             btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            btn.setTextColor(0xFF333333);
+            btn.setMinHeight(dp(36));
+            btn.setPadding(dp(14), dp(6), dp(14), dp(6));
             btn.setBackgroundColor(0xFFF2F2F7);
-            btn.setPadding(dp(14), dp(8), dp(14), dp(8));
+            btn.setTextColor(0xFF333333);
+            btn.setClipToOutline(true);
+            btn.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override public void getOutline(View v, android.graphics.Outline o) {
+                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(18));
+                }
+            });
             if (url.equals(currentUrl)) {
                 btn.setTextColor(Color.WHITE);
                 btn.setBackgroundColor(0xFF007AFF);
             }
             btn.setOnClickListener(v -> loadUrl(url));
             btn.setOnLongClickListener(v -> { showRenameDialog(url); return true; });
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            bp.rightMargin = dp(8);
+            btn.setLayoutParams(bp);
             tabBar.addView(btn);
         }
         Button addBtn = new Button(this);
         addBtn.setText("+ 添加");
         addBtn.setAllCaps(false);
         addBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        addBtn.setTextColor(Color.WHITE);
+        addBtn.setMinHeight(dp(36));
+        addBtn.setPadding(dp(14), dp(6), dp(14), dp(6));
         addBtn.setBackgroundColor(0xFF34C759);
-        addBtn.setPadding(dp(14), dp(8), dp(14), dp(8));
+        addBtn.setTextColor(Color.WHITE);
+        addBtn.setClipToOutline(true);
+        addBtn.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View v, android.graphics.Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(18));
+            }
+        });
         addBtn.setOnClickListener(v -> showAddDialog());
         tabBar.addView(addBtn);
 
@@ -160,93 +178,120 @@ public class MainActivity extends Activity {
         else if (currentUrl == null) showAddDialog();
     }
 
-    // Bottom sheet style dialog
-    private void showAddDialog() {
-        scannedUrl = null;
+    // 网页同款底部弹窗
+    private LinearLayout newCard() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(24), dp(20), dp(16));
-        card.setBackgroundColor(0xFFF2F2F7);
+        card.setBackgroundColor(0xFFFFFFFF);
+        card.setClipToOutline(true);
+        card.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View v, android.graphics.Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(12));
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(10);
+        card.setLayoutParams(lp);
+        return card;
+    }
 
+    private Button newSheetButton(String text, int color, boolean bold) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setBackgroundColor(0xFFFFFFFF);
+        b.setTextColor(color);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        b.setMinHeight(dp(52));
+        b.setPadding(dp(16), dp(14), dp(16), dp(14));
+        b.setGravity(Gravity.CENTER);
+        if (bold) b.getPaint().setFakeBoldText(true);
+        return b;
+    }
+
+    private void addSeparator(LinearLayout card) {
+        View line = new View(this);
+        line.setBackgroundColor(0x303C3C4B);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        lp.leftMargin = dp(16);
+        line.setLayoutParams(lp);
+        card.addView(line);
+    }
+
+    private void showAddDialog() {
+        scannedUrl = null;
+        LinearLayout sheet = new LinearLayout(this);
+        sheet.setOrientation(LinearLayout.VERTICAL);
+        sheet.setBackgroundColor(0xFFF2F2F7);
+        sheet.setPadding(dp(16), dp(8), dp(16), dp(16));
+
+        // Grab handle
+        View grab = new View(this);
+        grab.setBackgroundColor(0x4D3C3C4B);
+        LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(dp(36), dp(5));
+        grabLp.gravity = Gravity.CENTER_HORIZONTAL;
+        grabLp.bottomMargin = dp(14);
+        grab.setLayoutParams(grabLp);
+        sheet.addView(grab);
+
+        // Title
         TextView title = new TextView(this);
         title.setText("添加 TV 设备");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         title.setTextColor(0xFF000000);
         title.setGravity(Gravity.CENTER);
+        title.getPaint().setFakeBoldText(true);
         title.setPadding(0, 0, 0, dp(16));
-        card.addView(title);
+        sheet.addView(title);
 
-        // Scan button - white card
-        LinearLayout scanCard = new LinearLayout(this);
-        scanCard.setOrientation(LinearLayout.VERTICAL);
-        scanCard.setBackgroundColor(Color.WHITE);
-        scanCard.setPadding(0, 0, 0, 0);
-        Button scan = new Button(this);
-        scan.setText("扫描二维码");
-        scan.setAllCaps(false);
-        scan.setBackgroundColor(Color.WHITE);
-        scan.setTextColor(0xFF007AFF);
-        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        scan.setPadding(0, dp(14), 0, dp(14));
-        scan.setOnClickListener(v -> scanQR());
-        scanCard.addView(scan);
-        card.addView(scanCard);
+        // Card 1: scan button
+        LinearLayout card1 = newCard();
+        Button scan = newSheetButton("扫描二维码", 0xFF007AFF, false);
+        card1.addView(scan);
+        sheet.addView(card1);
 
+        // Scan result
         scanResultView = new TextView(this);
         scanResultView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        scanResultView.setTextColor(0xFF8E8E93);
-        scanResultView.setPadding(dp(8), dp(8), 0, dp(4));
+        scanResultView.setTextColor(0xFFFF3B30);
+        scanResultView.setPadding(dp(16), dp(8), 0, 0);
         scanResultView.setText("尚未扫码");
-        card.addView(scanResultView);
+        sheet.addView(scanResultView);
 
-        // Name input - white card
-        LinearLayout fieldCard = new LinearLayout(this);
-        fieldCard.setOrientation(LinearLayout.HORIZONTAL);
-        fieldCard.setGravity(Gravity.CENTER_VERTICAL);
-        fieldCard.setBackgroundColor(Color.WHITE);
-        fieldCard.setPadding(dp(14), dp(4), dp(14), dp(4));
+        // Card 2: name input
+        LinearLayout card2 = newCard();
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setPadding(dp(16), 0, dp(16), 0);
+        field.setMinimumHeight(dp(52));
         final EditText input = new EditText(this);
         input.setHint("设备名称（如：当贝盒子）");
         input.setBackground(null);
         input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        fieldCard.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        card.addView(fieldCard);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card2.addView(field);
+        LinearLayout.LayoutParams c2lp = (LinearLayout.LayoutParams) card2.getLayoutParams();
+        c2lp.topMargin = dp(4);
+        sheet.addView(card2);
 
-        // OK button - white card
-        LinearLayout okCard = new LinearLayout(this);
-        okCard.setOrientation(LinearLayout.VERTICAL);
-        okCard.setBackgroundColor(Color.WHITE);
-        okCard.setPadding(0, dp(8), 0, dp(8));
-        Button ok = new Button(this);
-        ok.setText("确定");
-        ok.setAllCaps(false);
-        ok.setBackgroundColor(Color.WHITE);
-        ok.setTextColor(0xFF007AFF);
-        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        ok.setPadding(0, dp(10), 0, dp(10));
+        // Card 3: OK
+        LinearLayout card3 = newCard();
+        Button ok = newSheetButton("确定", 0xFF007AFF, false);
         ok.setEnabled(false);
         ok.setAlpha(0.35f);
-        okCard.addView(ok);
-        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        okLp.topMargin = dp(10);
-        card.addView(okCard, okLp);
+        card3.addView(ok);
+        sheet.addView(card3);
 
-        // Cancel
-        Button cancel = new Button(this);
-        cancel.setText("取消");
-        cancel.setAllCaps(false);
-        cancel.setBackgroundColor(Color.WHITE);
-        cancel.setTextColor(0xFF007AFF);
-        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        cancel.getPaint().setFakeBoldText(true);
-        cancel.setPadding(0, dp(14), 0, dp(14));
-        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cancelLp.topMargin = dp(10);
+        // Card 4: Cancel
+        LinearLayout card4 = newCard();
+        Button cancel = newSheetButton("取消", 0xFF007AFF, true);
         cancel.setOnClickListener(v -> dismissDialog());
-        card.addView(cancel, cancelLp);
+        card4.addView(cancel);
+        sheet.addView(card4);
 
         ok.setOnClickListener(v -> {
             String name = input.getText().toString().trim();
@@ -258,19 +303,19 @@ public class MainActivity extends Activity {
         });
 
         input.addTextChangedListener(new android.text.TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-            public void onTextChanged(CharSequence s, int a, int b, int c) {}
-            public void afterTextChanged(android.text.Editable s) {
-                boolean ready = scannedUrl != null && !s.toString().trim().isEmpty();
+            public void beforeTextChanged(CharSequence a, int b, int c, int d) {}
+            public void onTextChanged(CharSequence a, int b, int c, int d) {}
+            public void afterTextChanged(android.text.Editable a) {
+                boolean ready = scannedUrl != null && !a.toString().trim().isEmpty();
                 ok.setEnabled(ready);
                 ok.setAlpha(ready ? 1f : 0.35f);
             }
         });
 
-        // Build as bottom sheet
+        scan.setOnClickListener(v -> scanQR());
+
         dialog = new AlertDialog.Builder(this)
-            .setView(card)
-            .setCancelable(true)
+            .setView(sheet)
             .show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
@@ -280,62 +325,58 @@ public class MainActivity extends Activity {
     }
 
     private void showRenameDialog(String url) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(24), dp(20), dp(16));
-        card.setBackgroundColor(0xFFF2F2F7);
+        LinearLayout sheet = new LinearLayout(this);
+        sheet.setOrientation(LinearLayout.VERTICAL);
+        sheet.setBackgroundColor(0xFFF2F2F7);
+        sheet.setPadding(dp(16), dp(8), dp(16), dp(16));
+
+        View grab = new View(this);
+        grab.setBackgroundColor(0x4D3C3C4B);
+        LinearLayout.LayoutParams g = new LinearLayout.LayoutParams(dp(36), dp(5));
+        g.gravity = Gravity.CENTER_HORIZONTAL; g.bottomMargin = dp(14);
+        grab.setLayoutParams(g);
+        sheet.addView(grab);
 
         TextView title = new TextView(this);
         title.setText("设备设置");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         title.setTextColor(0xFF000000);
         title.setGravity(Gravity.CENTER);
+        title.getPaint().setFakeBoldText(true);
         title.setPadding(0, 0, 0, dp(16));
-        card.addView(title);
+        sheet.addView(title);
 
-        LinearLayout fieldCard = new LinearLayout(this);
-        fieldCard.setOrientation(LinearLayout.HORIZONTAL);
-        fieldCard.setGravity(Gravity.CENTER_VERTICAL);
-        fieldCard.setBackgroundColor(Color.WHITE);
-        fieldCard.setPadding(dp(14), dp(4), dp(14), dp(4));
+        // Name input
+        LinearLayout card1 = newCard();
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setPadding(dp(16), 0, dp(16), 0);
+        field.setMinimumHeight(dp(52));
         final EditText input = new EditText(this);
         input.setText(getName(url));
         input.setBackground(null);
         input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        fieldCard.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        card.addView(fieldCard);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card1.addView(field);
+        sheet.addView(card1);
 
         // OK
-        Button ok = new Button(this);
-        ok.setText("确定");
-        ok.setAllCaps(false);
-        ok.setBackgroundColor(Color.WHITE);
-        ok.setTextColor(0xFF007AFF);
-        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        ok.setPadding(0, dp(14), 0, dp(14));
-        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        okLp.topMargin = dp(10);
+        LinearLayout card2 = newCard();
+        Button ok = newSheetButton("确定", 0xFF007AFF, false);
         ok.setOnClickListener(v -> {
             String name = input.getText().toString().trim();
             if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
             dismissDialog();
             refreshTabs();
         });
-        card.addView(ok, okLp);
+        card2.addView(ok);
+        sheet.addView(card2);
 
         // Delete
-        Button del = new Button(this);
-        del.setText("删除设备");
-        del.setAllCaps(false);
-        del.setBackgroundColor(Color.WHITE);
-        del.setTextColor(0xFFFF3B30);
-        del.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        del.setPadding(0, dp(14), 0, dp(14));
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        delLp.topMargin = dp(10);
+        LinearLayout card3 = newCard();
+        Button del = newSheetButton("删除设备", 0xFFFF3B30, false);
         del.setOnClickListener(v -> {
             dismissDialog();
             List<String> devices = getDevices();
@@ -348,26 +389,17 @@ public class MainActivity extends Activity {
                 else showAddDialog();
             } else refreshTabs();
         });
-        card.addView(del, delLp);
+        card3.addView(del);
+        sheet.addView(card3);
 
         // Cancel
-        Button cancel = new Button(this);
-        cancel.setText("取消");
-        cancel.setAllCaps(false);
-        cancel.setBackgroundColor(Color.WHITE);
-        cancel.setTextColor(0xFF007AFF);
-        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        cancel.getPaint().setFakeBoldText(true);
-        cancel.setPadding(0, dp(14), 0, dp(14));
-        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        cancelLp.topMargin = dp(10);
+        LinearLayout card4 = newCard();
+        Button cancel = newSheetButton("取消", 0xFF007AFF, true);
         cancel.setOnClickListener(v -> dismissDialog());
-        card.addView(cancel, cancelLp);
+        card4.addView(cancel);
+        sheet.addView(card4);
 
-        dialog = new AlertDialog.Builder(this)
-            .setView(card)
-            .show();
+        dialog = new AlertDialog.Builder(this).setView(sheet).show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
             dialog.getWindow().setGravity(Gravity.BOTTOM);
