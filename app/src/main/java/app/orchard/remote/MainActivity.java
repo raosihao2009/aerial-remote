@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
             if (url != null) webView.evaluateJavascript("onScan('" + url + "')", null);
         }
         if (req == 200 && filePathCallback != null) {
-            filePathCallback.onReceiveWebViewFileChooserResult(data);
+            filePathCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
             filePathCallback = null;
         }
     }
