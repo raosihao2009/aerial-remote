@@ -400,11 +400,13 @@ public class MainActivity extends Activity {
     }
 
     private void scanQR() {
-        new com.journeyapps.barcodescanner.IntentIntegrator(this)
-            .setDesiredBarcodeFormats(com.journeyapps.barcodescanner.IntentIntegrator.QR_CODE)
-            .setPrompt("扫描电视二维码")
-            .setBeepEnabled(true)
-            .initiateScan();
+        try {
+            Intent intent = new Intent("com.google.zxing.client.android.SCAN");
+            intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
+            startActivityForResult(intent, 100);
+        } catch (Exception e) {
+            Toast.makeText(this, "请用微信扫一扫扫描电视上的二维码", Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -420,10 +422,9 @@ public class MainActivity extends Activity {
             filePathCallback = null;
             return;
         }
-        com.journeyapps.barcodescanner.IntentResult result =
-            com.journeyapps.barcodescanner.IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null && result.getContents() != null) {
-            String url = result.getContents().trim();
+        if (requestCode == 100 && resultCode == RESULT_OK && data != null) {
+            String url = data.getStringExtra("SCAN_RESULT");
+            if (url != null) {
             if (url.startsWith("http")) {
                 url = url.replace(":8790/", ":8791/").replace("http://", "https://");
                 scannedUrl = url;
