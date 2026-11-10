@@ -423,22 +423,25 @@ public class MainActivity extends Activity {
     }
 
     private void scanQR() {
-        // 1. 先试 ZXing
+        // 直接调起微信扫一扫(国内必装)
+        try {
+            Intent intent = new Intent();
+            intent.setClassName("com.tencent.mm", "com.tencent.mm.plugin.scanner.ui.BaseScanUI");
+            startActivity(intent);
+            Toast.makeText(this, "微信扫码后复制链接, 再回来点「粘贴链接」", Toast.LENGTH_LONG).show();
+            return;
+        } catch (Exception e) {}
+        // 微信没有就试 ZXing
         try {
             Intent intent = new Intent("com.google.zxing.client.android.SCAN");
             intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
             startActivityForResult(intent, 100);
             return;
         } catch (Exception e) {}
-        // 2. 试微信扫一扫
-        try {
-            Intent intent = new Intent();
-            intent.setClassName("com.tencent.mm", "com.tencent.mm.plugin.scanner.ui.BaseScanUI");
-            startActivityForResult(intent, 100);
-            return;
-        } catch (Exception e) {}
-        // 3. 都没有, 提示用微信
-        Toast.makeText(this, "请打开微信「扫一扫」扫描电视二维码", Toast.LENGTH_LONG).show();
+        // 都没有, 弹出选择器
+        Intent chooser = new Intent(Intent.ACTION_VIEW);
+        chooser.setType("image/*");
+        Toast.makeText(this, "请用任意扫码App扫描电视二维码", Toast.LENGTH_LONG).show();
     }
 
     @Override
