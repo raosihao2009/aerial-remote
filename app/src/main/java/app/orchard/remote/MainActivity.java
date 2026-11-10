@@ -43,8 +43,21 @@ public class MainActivity extends Activity {
         contentWv.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                if (url != null && url.startsWith("file:///android_asset")) return false;
                 v.loadUrl(url);
                 return true;
+            }
+            @Override
+            public void onReceivedError(WebView v, android.webkit.WebResourceRequest req, android.webkit.WebResourceError err) {
+                if (req != null && req.isForMainFrame()) {
+                    int code = -1;
+                    try { code = err.getErrorCode(); } catch (Exception e) { }
+                    showError(code);
+                }
+            }
+            @Override
+            public void onReceivedError(WebView v, int code, String desc, String failingUrl) {
+                if (android.os.Build.VERSION.SDK_INT < 23) showError(code);
             }
             @Override
             public void onReceivedSslError(WebView v, android.webkit.SslErrorHandler handler, android.net.http.SslError e) {
@@ -72,6 +85,7 @@ public class MainActivity extends Activity {
                 }
             }
         });
+        contentWv.addJavascriptInterface(new ErrorBridge(), "Android");
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         clp.topMargin = dp(50);
@@ -143,6 +157,41 @@ public class MainActivity extends Activity {
             root.addView(sheetWv, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
+    }
+
+    private void showError(int code) {
+        String cur = currentUrl();
+        if (cur == null || cur.isEmpty()) return;
+        final String u = "file:///android_asset/error.html?code=" + code + "&url=" + Uri.encode(cur);
+        contentWv.loadUrl(u);
+    }
+
+    private String nameOf(String url) {
+        for (int i = 0; i < count(); i++) {
+            if (url.equals(urlAt(i))) return nameAt(i);
+        }
+        return "TV";
+    }
+
+    private void updateDevice(String oldUrl, String newUrl, String newName) {
+        int idx = -1;
+        for (int i = 0; i < count(); i++) {
+            if (oldUrl.equals(urlAt(i))) { idx = i; break; }
+        }
+        if (idx < 0) return;
+        // Another device already on this address: swap it out instead of duplicating.
+        for (int i = 0; i < count(); i++) {
+            if (i != idx && newUrl.equals(urlAt(i))) {
+                sp.edit().remove("url_" + i).remove("name_" + i).apply();
+                break;
+            }
+        }
+        sp.edit().putString("url_" + idx, newUrl).putString("name_" + idx, newName).apply();
+        if (oldUrl.equals(currentUrl())) {
+            sp.edit().putString("current", newUrl).apply();
+            contentWv.loadUrl(newUrl);
+        }
+        refreshTabs();
     }
 
     private void hideSheet() {
@@ -234,7 +283,7 @@ public class MainActivity extends Activity {
         @android.webkit.JavascriptInterface
         public void rename(final String url, final String name) {
             runOnUiThread(new Runnable() {
-                public void run() { showSheet("rename", url, name); }
+                public void run() { showSheet("edit", url, name); }
             });
         }
     }
@@ -246,8 +295,8 @@ public class MainActivity extends Activity {
         }
 
         @android.webkit.JavascriptInterface
-        public void renameSave(final String url, final String name) {
-            runOnUiThread(new Runnable() { public void run() { renameDevice(url, name); } });
+        public void saveEdit(final String oldUrl, final String newUrl, final String name) {
+            runOnUiThread(new Runnable() { public void run() { updateDevice(oldUrl, newUrl, name); } });
         }
 
         @android.webkit.JavascriptInterface
@@ -258,6 +307,20 @@ public class MainActivity extends Activity {
         @android.webkit.JavascriptInterface
         public void close() {
             runOnUiThread(new Runnable() { public void run() { hideSheet(); } });
+        }
+    }
+
+    public class ErrorBridge {
+        @android.webkit.JavascriptInterface
+        public void retry(final String url) {
+            runOnUiThread(new Runnable() { public void run() { contentWv.loadUrl(url); } });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void edit(final String url) {
+            runOnUiThread(new Runnable() {
+                public void run() { showSheet("edit", url, nameOf(url)); }
+            });
         }
     }
 

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--label:#000;--secondary:rgba(60,60,67,.6);--tertiary:rgba(60,60,67,.3);
+--sep:rgba(60,60,67,.18);--tint:#007aff;--fill:rgba(118,118,128,.12);--danger:#ff3b30}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:var(--bg)}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:0 32px env(safe-area-inset-bottom) 32px;text-align:center}
+.ic{width:56px;height:56px;color:var(--tertiary);margin-bottom:18px}
+h1{font-size:20px;font-weight:600;color:var(--label);margin:0 0 8px}
+p{font-size:15px;line-height:1.45;color:var(--secondary);margin:0}
+.addr{font-size:13px;color:var(--tertiary);margin-top:14px;word-break:break-all}
+.acts{width:100%;max-width:320px;margin-top:28px}
+.list{background:var(--card);border-radius:12px;overflow:hidden}
+.list+.list{margin-top:10px}
+.item{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;
+padding:11px 16px;border:0;background:none;font-size:16px;font-family:inherit;font-weight:500;color:var(--tint);cursor:pointer}
+.item+.item::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.item:active{background:var(--fill)}
+.item.strong{font-weight:600}
+</style></head><body>
+<div class="wrap">
+<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="12" rx="2"/><path d="M8 21h8"/><path d="M9.5 8.5l5 5M14.5 8.5l-5 5"/></svg>
+<h1 id="t">连不上电视</h1>
+<p id="m"></p>
+<div class="addr" id="a"></div>
+<div class="acts">
+  <div class="list"><button class="item strong" id="retry">重试</button></div>
+  <div class="list"><button class="item" id="edit">修改地址</button></div>
+</div>
+</div>
+<script>
+var Q={};
+location.search.replace(/^\?/,'').split('&').forEach(function(kv){
+  if(!kv)return;var a=kv.split('=');Q[decodeURIComponent(a[0])]=decodeURIComponent(a[1]||'');
+});
+var url=Q.url||'';
+var code=parseInt(Q.code||'-1',10);
+var T={
+  '-2':['找不到这个地址','电视的 IP 好像变了，去电视上看一下现在的地址。'],
+  '-6':['连不上电视','电视可能关机了，或者电视上的手机遥控没在运行。'],
+  '-7':['连接超时','手机和电视要在同一个 WiFi 下，路由器的「访客网络」连不通电视。'],
+  '-8':['连接超时','手机和电视要在同一个 WiFi 下，路由器的「访客网络」连不通电视。'],
+  '-9':['跳转太多次','地址可能写错了，检查一下端口是不是 8791。'],
+  '-10':['地址格式不对','地址要以 https:// 开头，端口用 8791。'],
+  '-15':['证书不被信任','先试一次重试；还不行就在电脑上看看电视证书是否过期。']
+};
+var t=T[String(code)]||['网页加载失败','检查电视是否开机、手机是否和电视连同一个 WiFi。'];
+document.getElementById('t').textContent=t[0];
+document.getElementById('m').textContent=t[1];
+document.getElementById('a').textContent=url;
+document.getElementById('retry').addEventListener('click',function(){Android.retry(url);});
+document.getElementById('edit').addEventListener('click',function(){Android.edit(url);});
+</script></body></html>

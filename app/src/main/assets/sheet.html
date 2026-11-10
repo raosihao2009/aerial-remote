@@ -65,7 +65,7 @@ function norm(v){
   return 'https://'+host+':8791'+rest;
 }
 function check(){
-  if(mode==='rename'){
+  if(mode==='edit'){
     ok.disabled=!nameInput.value.trim();
     return;
   }
@@ -82,13 +82,13 @@ function hide(){
   document.getElementById('sheet').classList.remove('open');
   setTimeout(function(){Android.close();},220);
 }
-if(mode==='rename'){
+if(mode==='edit'){
   document.getElementById('title').textContent='编辑设备';
-  document.getElementById('row1').style.display='none';
-  document.getElementById('foot').textContent='改个名字，或把这台电视从列表里删掉。';
+  document.getElementById('foot').textContent='地址改了会自动修正端口和协议。';
   document.getElementById('btnDel').style.display='';
+  urlInput.value=P.url||'';
   nameInput.value=P.name||'';
-  ok.disabled=!nameInput.value.trim();
+  ok.disabled=!(norm(urlInput.value)&&nameInput.value.trim());
 }else{
   urlInput.value='';
   nameInput.value='';
@@ -97,8 +97,8 @@ if(mode==='rename'){
 urlInput.addEventListener('input',check);
 nameInput.addEventListener('input',check);
 ok.addEventListener('click',function(){
-  if(mode==='rename'){
-    Android.renameSave(P.url,nameInput.value.trim());
+  if(mode==='edit'){
+    Android.saveEdit(P.url,norm(urlInput.value),nameInput.value.trim());
   }else{
     Android.save(norm(urlInput.value),nameInput.value.trim());
   }
