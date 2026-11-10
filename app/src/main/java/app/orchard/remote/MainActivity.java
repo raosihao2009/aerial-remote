@@ -208,18 +208,58 @@ public class MainActivity extends Activity {
     }
 
     private void askDeviceName(String url) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(20), dp(20), dp(8));
+        card.setBackgroundColor(0xFFFFFFFF);
+
+        TextView title = new TextView(this);
+        title.setText("命名设备");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextColor(0xFF000000);
+        title.setPadding(0, 0, 0, dp(12));
+        card.addView(title);
+
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setPadding(dp(4), dp(12), dp(4), dp(12));
+        field.setBackgroundColor(0xFFF5F5F7);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+
         final EditText input = new EditText(this);
-        input.setHint("设备名称（如：客厅电视）");
-        new AlertDialog.Builder(this)
-            .setTitle("命名设备")
-            .setView(input)
-            .setPositiveButton("完成", (d, w) -> {
-                String name = input.getText().toString().trim();
-                if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
-                loadUrl(url);
-            })
+        input.setHint("如：客厅电视");
+        input.setBackground(null);
+        input.setPadding(0, 0, 0, 0);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        field.addView(input, ip);
+        card.addView(field);
+
+        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+
+        Button save = new Button(this);
+        save.setText("完成");
+        save.setAllCaps(false);
+        save.setBackgroundColor(0xFFFFFFFF);
+        save.setTextColor(0xFF007AFF);
+        save.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        save.setPadding(0, dp(12), 0, dp(12));
+        save.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
+            loadUrl(url);
+        });
+        card.addView(save);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setView(card)
             .setCancelable(false)
             .show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
+        }
     }
 
     private void scanQR() {
