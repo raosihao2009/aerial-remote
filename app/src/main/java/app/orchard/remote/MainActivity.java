@@ -137,20 +137,16 @@ public class MainActivity extends Activity {
             btn.setText(getName(url));
             btn.setAllCaps(false);
             btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            btn.setMinHeight(dp(36));
-            btn.setPadding(dp(14), dp(6), dp(14), dp(6));
-            btn.setBackgroundColor(0xFFF2F2F7);
-            btn.setTextColor(0xFF333333);
-            btn.setClipToOutline(true);
-            btn.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                @Override public void getOutline(View v, android.graphics.Outline o) {
-                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(18));
-                }
-            });
-            if (url.equals(currentUrl)) {
-                btn.setTextColor(Color.WHITE);
-                btn.setBackgroundColor(0xFF007AFF);
-            }
+            btn.setMinHeight(dp(32));
+            btn.setMinimumWidth(dp(64));
+            btn.setPadding(dp(16), dp(6), dp(16), dp(6));
+            boolean active = url.equals(currentUrl);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(active ? 0xFF007AFF : 0xFFF2F2F7);
+            bg.setCornerRadius(dp(16));
+            btn.setBackground(bg);
+            btn.setTextColor(active ? Color.WHITE : 0xFF333333);
+            btn.setElevation(active ? dp(2) : 0);
             btn.setOnClickListener(v -> loadUrl(url));
             btn.setOnLongClickListener(v -> { showRenameDialog(url); return true; });
             LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
@@ -163,16 +159,14 @@ public class MainActivity extends Activity {
         addBtn.setText("+ 添加");
         addBtn.setAllCaps(false);
         addBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        addBtn.setMinHeight(dp(36));
-        addBtn.setPadding(dp(14), dp(6), dp(14), dp(6));
-        addBtn.setBackgroundColor(0xFF34C759);
+        addBtn.setMinHeight(dp(32));
+        addBtn.setMinimumWidth(dp(64));
+        addBtn.setPadding(dp(16), dp(6), dp(16), dp(6));
+        GradientDrawable abg = new GradientDrawable();
+        abg.setColor(0xFF34C759);
+        abg.setCornerRadius(dp(16));
+        addBtn.setBackground(abg);
         addBtn.setTextColor(Color.WHITE);
-        addBtn.setClipToOutline(true);
-        addBtn.setOutlineProvider(new android.view.ViewOutlineProvider() {
-            @Override public void getOutline(View v, android.graphics.Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(18));
-            }
-        });
         addBtn.setOnClickListener(v -> showAddDialog());
         tabBar.addView(addBtn);
 
