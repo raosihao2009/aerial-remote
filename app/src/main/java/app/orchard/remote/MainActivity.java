@@ -27,8 +27,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.journeyapps.barcodescanner.IntentIntegrator;
-import com.journeyapps.barcodescanner.IntentResult;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -368,11 +366,13 @@ public class MainActivity extends Activity {
     }
 
     private void scanQR() {
-        new IntentIntegrator(this)
-            .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-            .setPrompt("扫描 TV 二维码")
-            .setBeepEnabled(true)
-            .initiateScan();
+        try {
+            Intent intent = new Intent("com.google.zxing.client.android.SCAN");
+            intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
+            startActivityForResult(intent, 100);
+        } catch (Exception e) {
+            Toast.makeText(this, "请安装扫码 App", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -391,9 +391,9 @@ public class MainActivity extends Activity {
             filePathCallback = null;
             return;
         }
-        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null && result.getContents() != null) {
-            String url = result.getContents().trim();
+        if (requestCode == 100 && resultCode == RESULT_OK && data != null) {
+            String url = data.getStringExtra("SCAN_RESULT");
+            if (url != null) {
             if (url.startsWith("http")) {
                 url = url.replace(":8790/", ":8791/").replace("http://", "https://");
                 scannedUrl = url;
@@ -401,8 +401,6 @@ public class MainActivity extends Activity {
                     pendingScanResultView.setText("已扫码: " + url.replace("https://","").replace(":8791/","").split("/")[0]);
                     pendingScanResultView.setTextColor(0xFF34C759);
                 }
-            } else {
-                Toast.makeText(this, "不是有效的链接", Toast.LENGTH_SHORT).show();
             }
         }
     }
