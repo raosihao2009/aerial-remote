@@ -199,29 +199,26 @@ public class MainActivity extends Activity {
     }
 
     private void showAddDialog() {
-        final EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        input.setHint("http://192.168.1.4:8790/token/");
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(dp(20), dp(10), dp(20), 0);
-        layout.addView(input);
         new AlertDialog.Builder(this)
             .setTitle("添加 TV 设备")
-            .setView(layout)
-            .setPositiveButton("连接", (d, w) -> {
-                String url = input.getText().toString().trim();
-                if (url.isEmpty()) return;
-                if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://" + url;
-                url = url.replace(":8790/", ":8791/").replace("http://", "https://");
-                List<String> devices = getDevices();
-                if (!devices.contains(url)) {
-                    devices.add(url);
-                    saveDevices(devices);
-                }
+            .setMessage("请扫描电视上的二维码")
+            .setPositiveButton("扫码", (d, w) -> scanQR())
+            .setNegativeButton("取消", null)
+            .show();
+    }
+
+    private void askDeviceName(String url) {
+        final EditText input = new EditText(this);
+        input.setHint("设备名称（如：客厅电视）");
+        new AlertDialog.Builder(this)
+            .setTitle("命名设备")
+            .setView(input)
+            .setPositiveButton("完成", (d, w) -> {
+                String name = input.getText().toString().trim();
+                if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
                 loadUrl(url);
             })
-            .setNeutralButton("扫码", (d, w) -> scanQR())
+            .setCancelable(false)
             .show();
     }
 
@@ -259,7 +256,7 @@ public class MainActivity extends Activity {
                     devices.add(url);
                     saveDevices(devices);
                 }
-                loadUrl(url);
+                askDeviceName(url);
             } else {
                 Toast.makeText(this, "不是有效的链接", Toast.LENGTH_SHORT).show();
             }
