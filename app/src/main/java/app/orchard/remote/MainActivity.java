@@ -3,18 +3,17 @@ package app.orchard.remote;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.net.Uri;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
@@ -27,7 +26,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -38,8 +36,9 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout tabBar;
     private String currentUrl;
-    private ValueCallback<Uri[]> filePathCallback;
-    private static final int FILE_CHOOSER_REQUEST = 200;
+    private String scannedUrl = null;
+    private TextView scanResultView;
+    private AlertDialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,14 +47,14 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFFF5F5F7);
+        root.setBackgroundColor(0xFFF2F2F7);
 
-        // Tab bar
+        // Tab bar - white background like web
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setBackgroundColor(Color.WHITE);
         tabBar = new LinearLayout(this);
         tabBar.setOrientation(LinearLayout.HORIZONTAL);
-        tabBar.setPadding(dp(12), dp(10), dp(12), dp(10));
+        tabBar.setPadding(dp(8), dp(8), dp(8), dp(8));
         scroll.addView(tabBar);
         root.addView(scroll, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -88,19 +87,16 @@ public class MainActivity extends Activity {
 
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams fileChooserParams) {
-                if (filePathCallback != null) {
-                    filePathCallback.onReceiveValue(null);
-                }
+                if (filePathCallback != null) filePathCallback.onReceiveValue(null);
                 filePathCallback = callback;
                 Intent intent = fileChooserParams.createIntent();
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("*/*");
                 intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
                 try {
-                    startActivityForResult(Intent.createChooser(intent, "选择文件"), FILE_CHOOSER_REQUEST);
+                    startActivityForResult(Intent.createChooser(intent, "选择文件"), 200);
                 } catch (Exception e) {
                     filePathCallback = null;
-                    Toast.makeText(MainActivity.this, "无法打开文件选择器", Toast.LENGTH_SHORT).show();
                     return false;
                 }
                 return true;
@@ -110,13 +106,14 @@ public class MainActivity extends Activity {
         refreshTabs();
     }
 
+    private ValueCallback<Uri[]> filePathCallback;
+
     private int dp(int v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics());
     }
 
     private List<String> getDevices() {
-        Set<String> set = prefs.getStringSet("devices", new HashSet<>());
-        return new ArrayList<>(set);
+        return new ArrayList<>(prefs.getStringSet("devices", new HashSet<>()));
     }
 
     private void saveDevices(List<String> devices) {
@@ -124,7 +121,10 @@ public class MainActivity extends Activity {
     }
 
     private String getName(String url) {
-        return prefs.getString("name_" + url, url.replace("http://","").replace("https://","").replace(":8790","").replace(":8791","").split("/")[0]);
+        String n = prefs.getString("name_" + url, null);
+        if (n != null) return n;
+        String host = url.replace("https://","").replace("http://","").replace(":8791/","").replace(":8790/","").split("/")[0];
+        return host;
     }
 
     private void refreshTabs() {
@@ -132,98 +132,212 @@ public class MainActivity extends Activity {
         List<String> devices = getDevices();
         for (String url : devices) {
             Button btn = new Button(this);
-            String label = getName(url);
-            btn.setText(label);
+            btn.setText(getName(url));
             btn.setAllCaps(false);
             btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            btn.setTextColor(0xFF333333);
+            btn.setBackgroundColor(0xFFF2F2F7);
             btn.setPadding(dp(14), dp(8), dp(14), dp(8));
             if (url.equals(currentUrl)) {
-                btn.setBackgroundColor(0xFF007AFF);
                 btn.setTextColor(Color.WHITE);
-            } else {
-                btn.setBackgroundColor(0xFFE8E8ED);
-                btn.setTextColor(0xFF333333);
+                btn.setBackgroundColor(0xFF007AFF);
             }
             btn.setOnClickListener(v -> loadUrl(url));
-            btn.setOnLongClickListener(v -> {
-                showRenameDialog(url);
-                return true;
-            });
+            btn.setOnLongClickListener(v -> { showRenameDialog(url); return true; });
             tabBar.addView(btn);
         }
-        // Add button
         Button addBtn = new Button(this);
         addBtn.setText("+ 添加");
         addBtn.setAllCaps(false);
         addBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        addBtn.setPadding(dp(14), dp(8), dp(14), dp(8));
-        addBtn.setBackgroundColor(0xFF34C759);
         addBtn.setTextColor(Color.WHITE);
+        addBtn.setBackgroundColor(0xFF34C759);
+        addBtn.setPadding(dp(14), dp(8), dp(14), dp(8));
         addBtn.setOnClickListener(v -> showAddDialog());
         tabBar.addView(addBtn);
 
-        if (currentUrl == null && !devices.isEmpty()) {
-            loadUrl(devices.get(0));
-        } else if (currentUrl == null) {
-            showAddDialog();
+        if (currentUrl == null && !devices.isEmpty()) loadUrl(devices.get(0));
+        else if (currentUrl == null) showAddDialog();
+    }
+
+    // Bottom sheet style dialog
+    private void showAddDialog() {
+        scannedUrl = null;
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(24), dp(20), dp(16));
+        card.setBackgroundColor(0xFFF2F2F7);
+
+        TextView title = new TextView(this);
+        title.setText("添加 TV 设备");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextColor(0xFF000000);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, 0, 0, dp(16));
+        card.addView(title);
+
+        // Scan button - white card
+        LinearLayout scanCard = new LinearLayout(this);
+        scanCard.setOrientation(LinearLayout.VERTICAL);
+        scanCard.setBackgroundColor(Color.WHITE);
+        scanCard.setPadding(0, 0, 0, 0);
+        Button scan = new Button(this);
+        scan.setText("扫描二维码");
+        scan.setAllCaps(false);
+        scan.setBackgroundColor(Color.WHITE);
+        scan.setTextColor(0xFF007AFF);
+        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        scan.setPadding(0, dp(14), 0, dp(14));
+        scan.setOnClickListener(v -> scanQR());
+        scanCard.addView(scan);
+        card.addView(scanCard);
+
+        scanResultView = new TextView(this);
+        scanResultView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        scanResultView.setTextColor(0xFF8E8E93);
+        scanResultView.setPadding(dp(8), dp(8), 0, dp(4));
+        scanResultView.setText("尚未扫码");
+        card.addView(scanResultView);
+
+        // Name input - white card
+        LinearLayout fieldCard = new LinearLayout(this);
+        fieldCard.setOrientation(LinearLayout.HORIZONTAL);
+        fieldCard.setGravity(Gravity.CENTER_VERTICAL);
+        fieldCard.setBackgroundColor(Color.WHITE);
+        fieldCard.setPadding(dp(14), dp(4), dp(14), dp(4));
+        final EditText input = new EditText(this);
+        input.setHint("设备名称（如：当贝盒子）");
+        input.setBackground(null);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        fieldCard.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card.addView(fieldCard);
+
+        // OK button - white card
+        LinearLayout okCard = new LinearLayout(this);
+        okCard.setOrientation(LinearLayout.VERTICAL);
+        okCard.setBackgroundColor(Color.WHITE);
+        okCard.setPadding(0, dp(8), 0, dp(8));
+        Button ok = new Button(this);
+        ok.setText("确定");
+        ok.setAllCaps(false);
+        ok.setBackgroundColor(Color.WHITE);
+        ok.setTextColor(0xFF007AFF);
+        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        ok.setPadding(0, dp(10), 0, dp(10));
+        ok.setEnabled(false);
+        ok.setAlpha(0.35f);
+        okCard.addView(ok);
+        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        okLp.topMargin = dp(10);
+        card.addView(okCard, okLp);
+
+        // Cancel
+        Button cancel = new Button(this);
+        cancel.setText("取消");
+        cancel.setAllCaps(false);
+        cancel.setBackgroundColor(Color.WHITE);
+        cancel.setTextColor(0xFF007AFF);
+        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        cancel.getPaint().setFakeBoldText(true);
+        cancel.setPadding(0, dp(14), 0, dp(14));
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cancelLp.topMargin = dp(10);
+        cancel.setOnClickListener(v -> dismissDialog());
+        card.addView(cancel, cancelLp);
+
+        ok.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            prefs.edit().putString("name_" + scannedUrl, name).apply();
+            List<String> devices = getDevices();
+            if (!devices.contains(scannedUrl)) { devices.add(scannedUrl); saveDevices(devices); }
+            dismissDialog();
+            loadUrl(scannedUrl);
+        });
+
+        input.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            public void afterTextChanged(android.text.Editable s) {
+                boolean ready = scannedUrl != null && !s.toString().trim().isEmpty();
+                ok.setEnabled(ready);
+                ok.setAlpha(ready ? 1f : 0.35f);
+            }
+        });
+
+        // Build as bottom sheet
+        dialog = new AlertDialog.Builder(this)
+            .setView(card)
+            .setCancelable(true)
+            .show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
+            dialog.getWindow().setGravity(Gravity.BOTTOM);
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
     }
 
     private void showRenameDialog(String url) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(20), dp(20), dp(8));
-        card.setBackgroundColor(0xFFFFFFFF);
+        card.setPadding(dp(20), dp(24), dp(20), dp(16));
+        card.setBackgroundColor(0xFFF2F2F7);
 
         TextView title = new TextView(this);
         title.setText("设备设置");
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         title.setTextColor(0xFF000000);
+        title.setGravity(Gravity.CENTER);
         title.setPadding(0, 0, 0, dp(16));
         card.addView(title);
 
-        // 重命名输入
-        LinearLayout field = new LinearLayout(this);
-        field.setOrientation(LinearLayout.HORIZONTAL);
-        field.setGravity(Gravity.CENTER_VERTICAL);
-        field.setPadding(dp(12), dp(12), dp(12), dp(12));
-        field.setBackgroundColor(0xFFF5F5F7);
+        LinearLayout fieldCard = new LinearLayout(this);
+        fieldCard.setOrientation(LinearLayout.HORIZONTAL);
+        fieldCard.setGravity(Gravity.CENTER_VERTICAL);
+        fieldCard.setBackgroundColor(Color.WHITE);
+        fieldCard.setPadding(dp(14), dp(4), dp(14), dp(4));
         final EditText input = new EditText(this);
         input.setText(getName(url));
         input.setBackground(null);
         input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        card.addView(field);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        fieldCard.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card.addView(fieldCard);
 
-        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
-
-        // 确定
+        // OK
         Button ok = new Button(this);
         ok.setText("确定");
         ok.setAllCaps(false);
-        ok.setBackgroundColor(0xFFFFFFFF);
+        ok.setBackgroundColor(Color.WHITE);
         ok.setTextColor(0xFF007AFF);
         ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        ok.setPadding(0, dp(12), 0, dp(12));
+        ok.setPadding(0, dp(14), 0, dp(14));
+        LinearLayout.LayoutParams okLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        okLp.topMargin = dp(10);
         ok.setOnClickListener(v -> {
             String name = input.getText().toString().trim();
             if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
-            dismissCurrentDialog();
+            dismissDialog();
             refreshTabs();
         });
-        card.addView(ok);
+        card.addView(ok, okLp);
 
-        // 删除
+        // Delete
         Button del = new Button(this);
         del.setText("删除设备");
         del.setAllCaps(false);
-        del.setBackgroundColor(0xFFFFFFFF);
+        del.setBackgroundColor(Color.WHITE);
         del.setTextColor(0xFFFF3B30);
         del.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        del.setPadding(0, dp(12), 0, dp(12));
+        del.setPadding(0, dp(14), 0, dp(14));
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        delLp.topMargin = dp(10);
         del.setOnClickListener(v -> {
-            dismissCurrentDialog();
+            dismissDialog();
             List<String> devices = getDevices();
             devices.remove(url);
             saveDevices(devices);
@@ -232,137 +346,37 @@ public class MainActivity extends Activity {
                 currentUrl = null;
                 if (!devices.isEmpty()) loadUrl(devices.get(0));
                 else showAddDialog();
-            } else {
-                refreshTabs();
-            }
+            } else refreshTabs();
         });
-        card.addView(del);
+        card.addView(del, delLp);
 
-        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
-
-        // 取消
+        // Cancel
         Button cancel = new Button(this);
         cancel.setText("取消");
         cancel.setAllCaps(false);
-        cancel.setBackgroundColor(0xFFFFFFFF);
-        cancel.setTextColor(0xFF8E8E93);
+        cancel.setBackgroundColor(Color.WHITE);
+        cancel.setTextColor(0xFF007AFF);
         cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        cancel.setPadding(0, dp(12), 0, dp(12));
-        cancel.setOnClickListener(v -> dismissCurrentDialog());
-        card.addView(cancel);
+        cancel.getPaint().setFakeBoldText(true);
+        cancel.setPadding(0, dp(14), 0, dp(14));
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cancelLp.topMargin = dp(10);
+        cancel.setOnClickListener(v -> dismissDialog());
+        card.addView(cancel, cancelLp);
 
-        currentDialog = new AlertDialog.Builder(this).setView(card).show();
-        if (currentDialog.getWindow() != null) {
-            currentDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
+        dialog = new AlertDialog.Builder(this)
+            .setView(card)
+            .show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
+            dialog.getWindow().setGravity(Gravity.BOTTOM);
+            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
     }
 
-    private String scannedUrl = null;
-
-    private void showAddDialog() {
-        scannedUrl = null;
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(20), dp(20), dp(8));
-        card.setBackgroundColor(0xFFFFFFFF);
-
-        TextView title = new TextView(this);
-        title.setText("添加 TV 设备");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        title.setTextColor(0xFF000000);
-        title.setPadding(0, 0, 0, dp(16));
-        card.addView(title);
-
-        // 扫码行
-        Button scan = new Button(this);
-        scan.setText("扫描二维码");
-        scan.setAllCaps(false);
-        scan.setBackgroundColor(0xFFF5F5F7);
-        scan.setTextColor(0xFF007AFF);
-        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        scan.setPadding(dp(12), dp(10), dp(12), dp(10));
-        card.addView(scan);
-
-        // 扫码结果
-        TextView scanResult = new TextView(this);
-        scanResult.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        scanResult.setTextColor(0xFF8E8E93);
-        scanResult.setPadding(dp(4), dp(8), 0, dp(4));
-        scanResult.setText("尚未扫码");
-        card.addView(scanResult);
-
-        // 命名输入
-        LinearLayout field = new LinearLayout(this);
-        field.setOrientation(LinearLayout.HORIZONTAL);
-        field.setGravity(Gravity.CENTER_VERTICAL);
-        field.setPadding(dp(12), dp(12), dp(12), dp(12));
-        field.setBackgroundColor(0xFFF5F5F7);
-        final EditText input = new EditText(this);
-        input.setHint("设备名称（如：客厅电视）");
-        input.setBackground(null);
-        input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        card.addView(field);
-
-        // 确定按钮
-        Button ok = new Button(this);
-        ok.setText("确定");
-        ok.setAllCaps(false);
-        ok.setBackgroundColor(0xFFFFFFFF);
-        ok.setTextColor(0xFF007AFF);
-        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        ok.setEnabled(false);
-        ok.setAlpha(0.4f);
-        ok.setPadding(0, dp(12), 0, dp(12));
-        card.addView(ok);
-
-        // 取消
-        Button cancel = new Button(this);
-        cancel.setText("取消");
-        cancel.setAllCaps(false);
-        cancel.setBackgroundColor(0xFFFFFFFF);
-        cancel.setTextColor(0xFF8E8E93);
-        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        cancel.setPadding(0, dp(12), 0, dp(12));
-        card.addView(cancel);
-
-        scan.setOnClickListener(v -> scanQR());
-        cancel.setOnClickListener(v -> dismissCurrentDialog());
-
-        Runnable checkOk = () -> {
-            boolean ready = scannedUrl != null && !input.getText().toString().trim().isEmpty();
-            ok.setEnabled(ready);
-            ok.setAlpha(ready ? 1f : 0.4f);
-        };
-        input.addTextChangedListener(new android.text.TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-            public void onTextChanged(CharSequence s, int a, int b, int c) {}
-            public void afterTextChanged(android.text.Editable s) { checkOk.run(); }
-        });
-
-        ok.setOnClickListener(v -> {
-            String name = input.getText().toString().trim();
-            prefs.edit().putString("name_" + scannedUrl, name).apply();
-            List<String> devices = getDevices();
-            if (!devices.contains(scannedUrl)) { devices.add(scannedUrl); saveDevices(devices); }
-            dismissCurrentDialog();
-            loadUrl(scannedUrl);
-        });
-
-        currentDialog = new AlertDialog.Builder(this).setView(card).show();
-        if (currentDialog.getWindow() != null) {
-            currentDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
-        }
-        // store refs for after scan
-        pendingScanResultView = scanResult;
-    }
-
-    private TextView pendingScanResultView;
-
-    private AlertDialog currentDialog;
-    private void dismissCurrentDialog() {
-        if (currentDialog != null && currentDialog.isShowing()) currentDialog.dismiss();
+    private void dismissDialog() {
+        if (dialog != null && dialog.isShowing()) dialog.dismiss();
     }
 
     private void scanQR() {
@@ -371,21 +385,18 @@ public class MainActivity extends Activity {
             intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
             startActivityForResult(intent, 100);
         } catch (Exception e) {
-            Toast.makeText(this, "请安装扫码 App", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "请用微信或浏览器扫描电视上的二维码，然后回到这里", Toast.LENGTH_LONG).show();
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILE_CHOOSER_REQUEST) {
+        if (requestCode == 200) {
             if (filePathCallback == null) return;
             Uri[] results = null;
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                String dataString = data.getDataString();
-                if (dataString != null) {
-                    results = new Uri[]{Uri.parse(dataString)};
-                }
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                results = new Uri[]{data.getData()};
             }
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;
@@ -393,16 +404,15 @@ public class MainActivity extends Activity {
         }
         if (requestCode == 100 && resultCode == RESULT_OK && data != null) {
             String url = data.getStringExtra("SCAN_RESULT");
-            if (url != null) {
-            if (url.startsWith("http")) {
+            if (url != null && url.startsWith("http")) {
                 url = url.replace(":8790/", ":8791/").replace("http://", "https://");
                 scannedUrl = url;
-                if (pendingScanResultView != null) {
-                    pendingScanResultView.setText("已扫码: " + url.replace("https://","").replace(":8791/","").split("/")[0]);
-                    pendingScanResultView.setTextColor(0xFF34C759);
+                if (scanResultView != null) {
+                    String host = url.replace("https://","").replace(":8791/","").split("/")[0];
+                    scanResultView.setText("已扫码: " + host);
+                    scanResultView.setTextColor(0xFF34C759);
                 }
             }
-        }
         }
     }
 
