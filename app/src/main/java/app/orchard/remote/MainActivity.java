@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -183,13 +184,10 @@ public class MainActivity extends Activity {
     private LinearLayout newCard() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundColor(0xFFFFFFFF);
-        card.setClipToOutline(true);
-        card.setOutlineProvider(new android.view.ViewOutlineProvider() {
-            @Override public void getOutline(View v, android.graphics.Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(12));
-            }
-        });
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFFFFFFFF);
+        bg.setCornerRadius(dp(12));
+        card.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.topMargin = dp(10);
