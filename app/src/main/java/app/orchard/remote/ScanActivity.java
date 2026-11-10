@@ -4,9 +4,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import android.webkit.GeolocationPermissions;
 
 public class ScanActivity extends Activity {
     private WebView wv;
@@ -27,7 +28,7 @@ public class ScanActivity extends Activity {
         wv.getSettings().setJavaScriptEnabled(true);
         wv.getSettings().setMediaPlaybackRequiresUserGesture(false);
         wv.addJavascriptInterface(new Object() {
-            @JavascriptInterface
+            @android.webkit.JavascriptInterface
             public void onScan(String url) {
                 runOnUiThread(() -> {
                     setResult(RESULT_OK, new Intent().putExtra("SCAN_RESULT", url));
@@ -35,7 +36,12 @@ public class ScanActivity extends Activity {
                 });
             }
         }, "Android");
-        wv.setWebChromeClient(new WebChromeClient());
+        wv.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                request.grant(request.getResources());
+            }
+        });
         wv.loadUrl("file:///android_asset/scan.html");
         setContentView(wv);
     }
