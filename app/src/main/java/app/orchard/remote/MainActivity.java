@@ -199,12 +199,58 @@ public class MainActivity extends Activity {
     }
 
     private void showAddDialog() {
-        new AlertDialog.Builder(this)
-            .setTitle("添加 TV 设备")
-            .setMessage("请扫描电视上的二维码")
-            .setPositiveButton("扫码", (d, w) -> scanQR())
-            .setNegativeButton("取消", null)
-            .show();
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(20), dp(20), dp(8));
+        card.setBackgroundColor(0xFFFFFFFF);
+
+        TextView title = new TextView(this);
+        title.setText("添加 TV 设备");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextColor(0xFF000000);
+        title.setPadding(0, 0, 0, dp(8));
+        card.addView(title);
+
+        TextView hint = new TextView(this);
+        hint.setText("请扫描电视上的二维码");
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        hint.setTextColor(0xFF8E8E93);
+        hint.setPadding(0, 0, 0, dp(8));
+        card.addView(hint);
+
+        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+
+        Button scan = new Button(this);
+        scan.setText("扫描二维码");
+        scan.setAllCaps(false);
+        scan.setBackgroundColor(0xFFFFFFFF);
+        scan.setTextColor(0xFF007AFF);
+        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        scan.setPadding(0, dp(12), 0, dp(12));
+        scan.setOnClickListener(v -> { dismissCurrentDialog(); scanQR(); });
+        card.addView(scan);
+
+        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+
+        Button cancel = new Button(this);
+        cancel.setText("取消");
+        cancel.setAllCaps(false);
+        cancel.setBackgroundColor(0xFFFFFFFF);
+        cancel.setTextColor(0xFF8E8E93);
+        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        cancel.setPadding(0, dp(12), 0, dp(12));
+        cancel.setOnClickListener(v -> dismissCurrentDialog());
+        card.addView(cancel);
+
+        currentDialog = new AlertDialog.Builder(this).setView(card).show();
+        if (currentDialog.getWindow() != null) {
+            currentDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
+        }
+    }
+
+    private AlertDialog currentDialog;
+    private void dismissCurrentDialog() {
+        if (currentDialog != null && currentDialog.isShowing()) currentDialog.dismiss();
     }
 
     private void askDeviceName(String url) {
