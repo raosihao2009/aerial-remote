@@ -125,7 +125,10 @@ public class MainActivity extends Activity {
             .setPositiveButton("连接", (d, w) -> {
                 String url = input.getText().toString().trim();
                 if (url.isEmpty()) return;
-                if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://" + url;
+                // 自动转HTTPS: http://...:8790 -> https://...:8791
+                if (url.startsWith("http://")) url = "https://" + url.substring(7);
+                if (!url.startsWith("https://")) url = "https://" + url;
+                url = url.replace(":8790/", ":8791/");
                 List<String> devices = getDevices();
                 if (!devices.contains(url)) {
                     devices.add(url);
