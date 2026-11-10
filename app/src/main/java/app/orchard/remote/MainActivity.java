@@ -172,30 +172,91 @@ public class MainActivity extends Activity {
     }
 
     private void showRenameDialog(String url) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(20), dp(20), dp(8));
+        card.setBackgroundColor(0xFFFFFFFF);
+
+        TextView title = new TextView(this);
+        title.setText("设备设置");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextColor(0xFF000000);
+        title.setPadding(0, 0, 0, dp(16));
+        card.addView(title);
+
+        // 重命名输入
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setPadding(dp(12), dp(12), dp(12), dp(12));
+        field.setBackgroundColor(0xFFF5F5F7);
         final EditText input = new EditText(this);
         input.setText(getName(url));
-        new AlertDialog.Builder(this)
-            .setTitle("设备名称")
-            .setView(input)
-            .setPositiveButton("保存", (d, w) -> {
-                String name = input.getText().toString().trim();
-                if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
+        input.setBackground(null);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card.addView(field);
+
+        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+
+        // 确定
+        Button ok = new Button(this);
+        ok.setText("确定");
+        ok.setAllCaps(false);
+        ok.setBackgroundColor(0xFFFFFFFF);
+        ok.setTextColor(0xFF007AFF);
+        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        ok.setPadding(0, dp(12), 0, dp(12));
+        ok.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
+            dismissCurrentDialog();
+            refreshTabs();
+        });
+        card.addView(ok);
+
+        // 删除
+        Button del = new Button(this);
+        del.setText("删除设备");
+        del.setAllCaps(false);
+        del.setBackgroundColor(0xFFFFFFFF);
+        del.setTextColor(0xFFFF3B30);
+        del.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        del.setPadding(0, dp(12), 0, dp(12));
+        del.setOnClickListener(v -> {
+            dismissCurrentDialog();
+            List<String> devices = getDevices();
+            devices.remove(url);
+            saveDevices(devices);
+            prefs.edit().remove("name_" + url).apply();
+            if (url.equals(currentUrl)) {
+                currentUrl = null;
+                if (!devices.isEmpty()) loadUrl(devices.get(0));
+                else showAddDialog();
+            } else {
                 refreshTabs();
-            })
-            .setNegativeButton("删除设备", (d, w) -> {
-                List<String> devices = getDevices();
-                devices.remove(url);
-                saveDevices(devices);
-                prefs.edit().remove("name_" + url).apply();
-                if (url.equals(currentUrl)) {
-                    currentUrl = null;
-                    if (!devices.isEmpty()) loadUrl(devices.get(0));
-                    else showAddDialog();
-                } else {
-                    refreshTabs();
-                }
-            })
-            .show();
+            }
+        });
+        card.addView(del);
+
+        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+
+        // 取消
+        Button cancel = new Button(this);
+        cancel.setText("取消");
+        cancel.setAllCaps(false);
+        cancel.setBackgroundColor(0xFFFFFFFF);
+        cancel.setTextColor(0xFF8E8E93);
+        cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        cancel.setPadding(0, dp(12), 0, dp(12));
+        cancel.setOnClickListener(v -> dismissCurrentDialog());
+        card.addView(cancel);
+
+        currentDialog = new AlertDialog.Builder(this).setView(card).show();
+        if (currentDialog.getWindow() != null) {
+            currentDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
+        }
     }
 
     private String scannedUrl = null;
