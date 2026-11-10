@@ -1,14 +1,10 @@
 package app.orchard.remote;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Intent;
+import android.app.AlertDialog;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.text.InputType;
-import android.view.View;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
@@ -17,13 +13,11 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
-import android.app.AlertDialog;
 
 public class MainActivity extends Activity {
     private WebView webView;
     private SharedPreferences prefs;
 
-    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,22 +35,15 @@ public class MainActivity extends Activity {
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setGeolocationEnabled(true);
-        webView.getSettings().setAllowFileAccess(true);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
 
-        // 自动信任自签名证书
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) {
                 handler.proceed();
             }
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // 页面加载完成后隐藏地址栏等不需要的元素
-            }
         });
 
-        // GPS权限对话框
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
@@ -75,8 +62,7 @@ public class MainActivity extends Activity {
     private void showUrlDialog() {
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        input.setHint("https://192.168.1.4:8790/xxxx/");
-        input.setText(prefs.getString("lastUrl", "https://192.168.1.4:8790/"));
+        input.setHint("https://192.168.1.4:8791/xxxx/");
         new AlertDialog.Builder(this)
             .setTitle("TV 地址")
             .setView(input)
@@ -84,11 +70,8 @@ public class MainActivity extends Activity {
             .setPositiveButton("连接", (d, w) -> {
                 String url = input.getText().toString().trim();
                 if (!url.startsWith("http")) url = "https://" + url;
-                prefs.edit().putString("url", url).putString("lastUrl", url).apply();
+                prefs.edit().putString("url", url).apply();
                 webView.loadUrl(url);
-            })
-            .setNeutralButton("清除地址", (d, w) -> {
-                prefs.edit().remove("url").apply();
             })
             .show();
     }
