@@ -3,6 +3,11 @@ package app.orchard.remote;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -35,6 +40,8 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout tabBar;
     private String currentUrl;
+    private ValueCallback<Uri[]> filePathCallback;
+    private static final int FILE_CHOOSER_REQUEST = 200;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +86,26 @@ public class MainActivity extends Activity {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 callback.invoke(origin, true, false);
+            }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams fileChooserParams) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                Intent intent = fileChooserParams.createIntent();
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "选择文件"), FILE_CHOOSER_REQUEST);
+                } catch (Exception e) {
+                    filePathCallback = null;
+                    Toast.makeText(MainActivity.this, "无法打开文件选择器", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                return true;
             }
         });
 
@@ -209,6 +236,19 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_REQUEST) {
+            if (filePathCallback == null) return;
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
+                }
+            }
+            filePathCallback.onReceiveValue(results);
+            filePathCallback = null;
+            return;
+        }
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null && result.getContents() != null) {
             String url = result.getContents().trim();
