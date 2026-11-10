@@ -8,8 +8,6 @@ import android.os.Bundle;
 import android.webkit.*;
 import android.webkit.SslErrorHandler;;
 import android.webkit.WebView;
-import android.content.ClipboardManager;
-import android.content.ClipData;
 import android.Manifest;
 import android.content.pm.PackageManager;
 
@@ -19,7 +17,6 @@ import java.util.List;
 public class MainActivity extends Activity {
     private WebView webView;
     private SharedPreferences sp;
-    private static final int SCAN_REQ = 100;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -91,27 +88,11 @@ public class MainActivity extends Activity {
             });
         }
 
-        @JavascriptInterface
-        public void scan() {
-            runOnUiThread(() -> startActivityForResult(new Intent(MainActivity.this, ScanActivity.class), SCAN_REQ));
-        }
-
-        @JavascriptInterface
-        public String paste() {
-            ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            ClipData cd = cm.getPrimaryClip();
-            if (cd != null && cd.getItemCount() > 0) return cd.getItemAt(0).getText().toString();
-            return "";
-        }
     }
 
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == SCAN_REQ && res == RESULT_OK && data != null) {
-            String url = data.getStringExtra("SCAN_RESULT");
-            if (url != null) webView.evaluateJavascript("onScan('" + url + "')", null);
-        }
         if (req == 200 && filePathCallback != null) {
             filePathCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
             filePathCallback = null;
