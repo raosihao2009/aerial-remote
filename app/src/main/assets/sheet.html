@@ -65,11 +65,13 @@ function norm(v){
   return 'https://'+host+':8791'+rest;
 }
 function check(){
+  if(mode==='rename'){
+    ok.disabled=!nameInput.value.trim();
+    return;
+  }
   var u=norm(urlInput.value);
   ok.disabled=!(u&&nameInput.value.trim());
-  if(mode!=='rename'){
-    document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
-  }
+  document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
 }
 function show(){
   document.getElementById('scrim').classList.add('open');
@@ -86,7 +88,7 @@ if(mode==='rename'){
   document.getElementById('foot').textContent='改个名字，或把这台电视从列表里删掉。';
   document.getElementById('btnDel').style.display='';
   nameInput.value=P.name||'';
-  ok.disabled=false;
+  ok.disabled=!nameInput.value.trim();
 }else{
   urlInput.value='';
   nameInput.value='';
