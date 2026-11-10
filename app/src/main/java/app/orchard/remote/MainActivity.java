@@ -399,22 +399,18 @@ public class MainActivity extends Activity {
     }
 
     private void scanQR() {
-        com.google.android.gms.mlkit.vision.barcode.GmsBarcodeScanning.getClient(this)
-            .startScan()
-            .addOnSuccessListener(barcode -> {
-                String url = barcode.getRawValue();
-                if (url != null && url.startsWith("http")) {
-                    url = url.replace(":8790/", ":8791/").replace("http://", "https://");
-                    scannedUrl = url;
-                    if (scanResultView != null) {
-                        String host = url.replace("https://","").replace(":8791/","").split("/")[0];
-                        scanResultView.setText("已扫码: " + host);
-                        scanResultView.setTextColor(0xFF34C759);
-                    }
-                }
-            })
-            .addOnFailureListener(e ->
-                Toast.makeText(this, "扫码失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+        try {
+            Intent intent = new Intent("com.google.zxing.client.android.SCAN");
+            intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
+            startActivityForResult(intent, 100);
+        } catch (Exception e) {
+            // 没有扫码App, 提示用微信
+            new AlertDialog.Builder(this)
+                .setTitle("扫码")
+                .setMessage("请用微信「扫一扫」扫描电视上的二维码\n\n微信扫描后会打开网页链接，复制链接后回到这里手动添加")
+                .setPositiveButton("我知道了", null)
+                .show();
+        }
     }
 
     @Override
