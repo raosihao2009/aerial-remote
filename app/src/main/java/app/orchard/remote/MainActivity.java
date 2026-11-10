@@ -286,13 +286,6 @@ public class MainActivity extends Activity {
         card3.addView(ok);
         sheet.addView(card3);
 
-        // Card 4: Cancel
-        LinearLayout card4 = newCard();
-        Button cancel = newSheetButton("取消", 0xFF007AFF, true);
-        cancel.setOnClickListener(v -> dismissDialog());
-        card4.addView(cancel);
-        sheet.addView(card4);
-
         ok.setOnClickListener(v -> {
             String name = input.getText().toString().trim();
             prefs.edit().putString("name_" + scannedUrl, name).apply();
@@ -316,6 +309,7 @@ public class MainActivity extends Activity {
 
         dialog = new AlertDialog.Builder(this)
             .setView(sheet)
+            .setCancelable(true)
             .show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
@@ -391,13 +385,6 @@ public class MainActivity extends Activity {
         });
         card3.addView(del);
         sheet.addView(card3);
-
-        // Cancel
-        LinearLayout card4 = newCard();
-        Button cancel = newSheetButton("取消", 0xFF007AFF, true);
-        cancel.setOnClickListener(v -> dismissDialog());
-        card4.addView(cancel);
-        sheet.addView(card4);
 
         dialog = new AlertDialog.Builder(this).setView(sheet).show();
         if (dialog.getWindow() != null) {
