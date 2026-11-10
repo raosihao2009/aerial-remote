@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 v.loadUrl(url); return true;
             }
-            @Override public void onReceivedSslError(WebView v, SslHandler handler, android.net.SslError e) {
+            @Override public void onReceivedSslError(WebView v, SslErrorHandler handler, android.net.SslError e) {
                 handler.proceed();
             }
         });
