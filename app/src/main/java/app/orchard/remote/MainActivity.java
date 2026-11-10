@@ -452,6 +452,7 @@ public class MainActivity extends Activity {
                 }
             }
         }
+        }
     }
 
     private void loadUrl(String url) {
