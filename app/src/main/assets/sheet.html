@@ -55,14 +55,21 @@ var ok=document.getElementById('ok');
 function norm(v){
   v=(v||'').trim();
   if(!v)return'';
-  if(!/^https?:\/\//.test(v)&&!/^[\w.-]+(:\d+)?(\/|$)/.test(v))return'';
-  if(!/^https?:\/\//.test(v))v='https://'+v;
-  v=v.replace(/^http:\/\//,'https://').replace(':8790',':8791');
-  if(v.charAt(v.length-1)!=='/')v+='/';
-  return v;
+  if(!/^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//.test(v))v='https://'+v;
+  var m=v.match(/^(?:[a-zA-Z][a-zA-Z0-9+.\-]*):\/\/([^\/?#]+)([\/?#].*)?$/);
+  if(!m)return'';
+  var host=m[1].replace(/:\d+$/,'').toLowerCase();
+  if(!/^[a-z0-9.\-]+$/.test(host))return'';
+  var rest=m[2]||'/';
+  if(rest.charAt(0)!=='/')rest='/'+rest.split(/[?#]/)[0];
+  return 'https://'+host+':8791'+rest;
 }
 function check(){
-  ok.disabled=!(norm(urlInput.value)&&nameInput.value.trim());
+  var u=norm(urlInput.value);
+  ok.disabled=!(u&&nameInput.value.trim());
+  if(mode!=='rename'){
+    document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
+  }
 }
 function show(){
   document.getElementById('scrim').classList.add('open');

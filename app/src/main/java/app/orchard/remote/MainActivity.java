@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
         });
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        clp.topMargin = dp(48);
+        clp.topMargin = dp(50);
         root.addView(contentWv, clp);
 
         tabsWv = new WebView(this);
@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
         tabsWv.setWebViewClient(new WebViewClient());
         tabsWv.addJavascriptInterface(new TabsBridge(), "Android");
         FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
         root.addView(tabsWv, tlp);
         tabsWv.loadUrl("file:///android_asset/tabs.html");
 
@@ -183,22 +183,29 @@ public class MainActivity extends Activity {
             urls.add(urlAt(i));
             names.add(nameAt(i));
         }
+        String cur = currentUrl();
         SharedPreferences.Editor ed = sp.edit();
-        ed.clear();
+        for (int i = 0; i < n; i++) {
+            ed.remove("url_" + i);
+            ed.remove("name_" + i);
+        }
         for (int i = 0; i < urls.size(); i++) {
             ed.putString("url_" + i, urls.get(i));
             ed.putString("name_" + i, names.get(i));
         }
         ed.putInt("count", urls.size());
-        if (url.equals(currentUrl())) {
-            ed.putString("current", urls.isEmpty() ? "" : urls.get(0));
-        }
+        String next = urls.isEmpty() ? "" : urls.get(0);
+        if (url.equals(cur)) ed.putString("current", next);
         ed.apply();
-        if (url.equals(currentUrl())) {
-            if (urls.isEmpty()) contentWv.loadUrl("about:blank");
-            else contentWv.loadUrl(urls.get(0));
+        if (url.equals(cur)) {
+            if (next.isEmpty()) contentWv.loadUrl("about:blank");
+            else contentWv.loadUrl(next);
         }
         refreshTabs();
+        final int cc = urls.size();
+        if (cc == 0) {
+            root.postDelayed(new Runnable() { public void run() { showSheet("add", "", ""); } }, 400);
+        }
     }
 
     public class TabsBridge {

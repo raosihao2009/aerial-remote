@@ -3,46 +3,57 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 :root{--bg:#f2f2f7;--card:#fff;--label:#000;--secondary:rgba(60,60,67,.6);--tertiary:rgba(60,60,67,.3);
---sep:rgba(60,60,67,.18);--tint:#007aff;--fill:rgba(118,118,128,.12);--danger:#ff3b30}
+--sep:rgba(60,60,67,.18);--tint:#007aff;--fill:rgba(118,118,128,.12);
+--bar:rgba(249,249,249,.82);--bar-line:rgba(0,0,0,.14)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
 -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg);box-shadow:0 .5px 0 var(--sep);display:flex;align-items:center;
-padding:0 8px;gap:8px;overflow-x:auto;overflow-y:hidden;font-family:-apple-system,system-ui,sans-serif}
-body::-webkit-scrollbar{display:none}
-.pill{flex:none;height:32px;padding:0 16px;border-radius:16px;background:var(--fill);color:var(--label);
-display:flex;align-items:center;font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer;
-transition:background-color .18s ease,color .18s ease}
-.pill:active{opacity:.55}
-.pill.on{background:var(--tint);color:#fff}
-.pill.add{background:#34c759;color:#fff}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+#bar{height:100%;display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden;
+background:var(--bar);box-shadow:0 .5px 0 var(--bar-line);
+-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+#bar::-webkit-scrollbar{display:none}
+.tab{flex:none;min-width:72px;max-width:132px;border:0;background:none;padding:6px 8px 0;
+color:var(--secondary);display:flex;flex-direction:column;align-items:center;gap:2px;
+font-size:10.5px;font-weight:500;font-family:inherit;cursor:pointer}
+.tab svg{width:26px;height:26px;transition:transform .16s cubic-bezier(.32,.72,0,1)}
+.tab:active svg{transform:scale(.88)}
+.tab.on{color:var(--tint)}
+.tab .n{max-width:116px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style></head><body>
+<div id="bar"></div>
 <script>
-var LONG=null;
-function renderTabs(list,current){
-  document.body.innerHTML='';
-  list.forEach(function(d){
-    var b=document.createElement('div');
-    b.className='pill'+(d.url===current?' on':'');
-    b.textContent=d.name||'TV';
-    b.addEventListener('touchstart',function(){
-      b.style.opacity='.55';
-      LONG=setTimeout(function(){LONG=null;Android.rename(d.url,d.name);},550);
-    },{passive:true});
-    b.addEventListener('touchend',function(){
-      b.style.opacity='';
-      if(LONG){clearTimeout(LONG);LONG=null;Android.open(d.url);}
-    });
-    b.addEventListener('touchmove',function(){
-      if(LONG){clearTimeout(LONG);LONG=null;b.style.opacity='';}
-    });
-    b.oncontextmenu=function(e){e.preventDefault();return false;};
-    document.body.appendChild(b);
+var ICON_TV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="12" rx="2"/><path d="M8 21h8"/></svg>';
+var ICON_ADD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg>';
+var timer=null;
+function makeTab(cls,icon,label,onTap,onLong){
+  var b=document.createElement('button');
+  b.className='tab'+(cls?' '+cls:'');
+  b.innerHTML=icon+'<span class="n"></span>';
+  b.querySelector('.n').textContent=label;
+  var moved=false;
+  b.addEventListener('touchstart',function(){
+    moved=false;
+    clearTimeout(timer);
+    timer=setTimeout(function(){timer=null;if(onLong)onLong();},550);
+  },{passive:true});
+  b.addEventListener('touchmove',function(){moved=true;clearTimeout(timer);timer=null;},{passive:true});
+  b.addEventListener('touchend',function(){
+    if(timer){clearTimeout(timer);timer=null;if(!moved)onTap();}
   });
-  var a=document.createElement('div');
-  a.className='pill add';a.textContent='+ 添加';
-  a.addEventListener('touchend',function(){Android.add();});
-  document.body.appendChild(a);
+    b.addEventListener('touchcancel',function(){clearTimeout(timer);timer=null;});
+  b.addEventListener('click',function(e){e.preventDefault();});
+  b.addEventListener('contextmenu',function(e){e.preventDefault();});
+  return b;
+}
+function renderTabs(list,current){
+  var bar=document.getElementById('bar');
+  bar.innerHTML='';
+  list.forEach(function(d){
+    bar.appendChild(makeTab(d.url===current?'on':'',ICON_TV,d.name||'TV',
+      function(){Android.openUrl(d.url);},
+      function(){Android.rename(d.url,d.name);}));
+  });
+  bar.appendChild(makeTab('',ICON_ADD,'添加',function(){Android.add();},null));
 }
 Android.ready();
 </script></body></html>
