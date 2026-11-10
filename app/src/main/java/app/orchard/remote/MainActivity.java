@@ -247,10 +247,33 @@ public class MainActivity extends Activity {
         title.setPadding(0, 0, 0, dp(16));
         sheet.addView(title);
 
-        // Card 1: scan button
+        // Card 1: scan + paste
         LinearLayout card1 = newCard();
         Button scan = newSheetButton("扫描二维码", 0xFF007AFF, false);
         card1.addView(scan);
+        View sep = new View(this);
+        sep.setBackgroundColor(0x303C3C4B);
+        LinearLayout.LayoutParams sepLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        sepLp.leftMargin = dp(16);
+        sep.setLayoutParams(sepLp);
+        card1.addView(sep);
+        Button paste = newSheetButton("粘贴链接", 0xFF007AFF, false);
+        paste.setOnClickListener(v -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm != null && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
+                String clip = cm.getPrimaryClip().getItemAt(0).getText().toString().trim();
+                if (clip.startsWith("http")) {
+                    clip = clip.replace(":8790/", ":8791/").replace("http://", "https://");
+                    scannedUrl = clip;
+                    scanResultView.setText("已粘贴: " + clip.replace("https://","").replace(":8791/","").split("/")[0]);
+                    scanResultView.setTextColor(0xFF34C759);
+                } else {
+                    scanResultView.setText("剪贴板没有链接");
+                    scanResultView.setTextColor(0xFFFF3B30);
+                }
+            }
+        });
+        card1.addView(paste);
         sheet.addView(card1);
 
         // Scan result
