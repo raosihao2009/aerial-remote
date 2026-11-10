@@ -198,7 +198,10 @@ public class MainActivity extends Activity {
             .show();
     }
 
+    private String scannedUrl = null;
+
     private void showAddDialog() {
+        scannedUrl = null;
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20), dp(20), dp(20), dp(8));
@@ -208,30 +211,54 @@ public class MainActivity extends Activity {
         title.setText("添加 TV 设备");
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         title.setTextColor(0xFF000000);
-        title.setPadding(0, 0, 0, dp(8));
+        title.setPadding(0, 0, 0, dp(16));
         card.addView(title);
 
-        TextView hint = new TextView(this);
-        hint.setText("请扫描电视上的二维码");
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        hint.setTextColor(0xFF8E8E93);
-        hint.setPadding(0, 0, 0, dp(8));
-        card.addView(hint);
-
-        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
-
+        // 扫码行
         Button scan = new Button(this);
         scan.setText("扫描二维码");
         scan.setAllCaps(false);
-        scan.setBackgroundColor(0xFFFFFFFF);
+        scan.setBackgroundColor(0xFFF5F5F7);
         scan.setTextColor(0xFF007AFF);
-        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        scan.setPadding(0, dp(12), 0, dp(12));
-        scan.setOnClickListener(v -> { dismissCurrentDialog(); scanQR(); });
+        scan.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        scan.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.addView(scan);
 
-        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
+        // 扫码结果
+        TextView scanResult = new TextView(this);
+        scanResult.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        scanResult.setTextColor(0xFF8E8E93);
+        scanResult.setPadding(dp(4), dp(8), 0, dp(4));
+        scanResult.setText("尚未扫码");
+        card.addView(scanResult);
 
+        // 命名输入
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.HORIZONTAL);
+        field.setGravity(Gravity.CENTER_VERTICAL);
+        field.setPadding(dp(12), dp(12), dp(12), dp(12));
+        field.setBackgroundColor(0xFFF5F5F7);
+        final EditText input = new EditText(this);
+        input.setHint("设备名称（如：客厅电视）");
+        input.setBackground(null);
+        input.setSingleLine(true);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        field.addView(input, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        card.addView(field);
+
+        // 确定按钮
+        Button ok = new Button(this);
+        ok.setText("确定");
+        ok.setAllCaps(false);
+        ok.setBackgroundColor(0xFFFFFFFF);
+        ok.setTextColor(0xFF007AFF);
+        ok.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        ok.setEnabled(false);
+        ok.setAlpha(0.4f);
+        ok.setPadding(0, dp(12), 0, dp(12));
+        card.addView(ok);
+
+        // 取消
         Button cancel = new Button(this);
         cancel.setText("取消");
         cancel.setAllCaps(false);
@@ -239,73 +266,44 @@ public class MainActivity extends Activity {
         cancel.setTextColor(0xFF8E8E93);
         cancel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         cancel.setPadding(0, dp(12), 0, dp(12));
-        cancel.setOnClickListener(v -> dismissCurrentDialog());
         card.addView(cancel);
+
+        scan.setOnClickListener(v -> scanQR());
+        cancel.setOnClickListener(v -> dismissCurrentDialog());
+
+        Runnable checkOk = () -> {
+            boolean ready = scannedUrl != null && !input.getText().toString().trim().isEmpty();
+            ok.setEnabled(ready);
+            ok.setAlpha(ready ? 1f : 0.4f);
+        };
+        input.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            public void afterTextChanged(android.text.Editable s) { checkOk.run(); }
+        });
+
+        ok.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            prefs.edit().putString("name_" + scannedUrl, name).apply();
+            List<String> devices = getDevices();
+            if (!devices.contains(scannedUrl)) { devices.add(scannedUrl); saveDevices(devices); }
+            dismissCurrentDialog();
+            loadUrl(scannedUrl);
+        });
 
         currentDialog = new AlertDialog.Builder(this).setView(card).show();
         if (currentDialog.getWindow() != null) {
             currentDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
         }
+        // store refs for after scan
+        pendingScanResultView = scanResult;
     }
+
+    private TextView pendingScanResultView;
 
     private AlertDialog currentDialog;
     private void dismissCurrentDialog() {
         if (currentDialog != null && currentDialog.isShowing()) currentDialog.dismiss();
-    }
-
-    private void askDeviceName(String url) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20), dp(20), dp(20), dp(8));
-        card.setBackgroundColor(0xFFFFFFFF);
-
-        TextView title = new TextView(this);
-        title.setText("命名设备");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        title.setTextColor(0xFF000000);
-        title.setPadding(0, 0, 0, dp(12));
-        card.addView(title);
-
-        LinearLayout field = new LinearLayout(this);
-        field.setOrientation(LinearLayout.HORIZONTAL);
-        field.setGravity(Gravity.CENTER_VERTICAL);
-        field.setPadding(dp(4), dp(12), dp(4), dp(12));
-        field.setBackgroundColor(0xFFF5F5F7);
-        field.setOrientation(LinearLayout.HORIZONTAL);
-
-        final EditText input = new EditText(this);
-        input.setHint("如：客厅电视");
-        input.setBackground(null);
-        input.setPadding(0, 0, 0, 0);
-        input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
-        field.addView(input, ip);
-        card.addView(field);
-
-        card.addView(new View(this) {{ setBackgroundColor(0xFFE5E5EA); setMinimumHeight(1); }});
-
-        Button save = new Button(this);
-        save.setText("完成");
-        save.setAllCaps(false);
-        save.setBackgroundColor(0xFFFFFFFF);
-        save.setTextColor(0xFF007AFF);
-        save.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        save.setPadding(0, dp(12), 0, dp(12));
-        save.setOnClickListener(v -> {
-            String name = input.getText().toString().trim();
-            if (!name.isEmpty()) prefs.edit().putString("name_" + url, name).apply();
-            loadUrl(url);
-        });
-        card.addView(save);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-            .setView(card)
-            .setCancelable(false)
-            .show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0x00000000));
-        }
     }
 
     private void scanQR() {
@@ -337,12 +335,11 @@ public class MainActivity extends Activity {
             String url = result.getContents().trim();
             if (url.startsWith("http")) {
                 url = url.replace(":8790/", ":8791/").replace("http://", "https://");
-                List<String> devices = getDevices();
-                if (!devices.contains(url)) {
-                    devices.add(url);
-                    saveDevices(devices);
+                scannedUrl = url;
+                if (pendingScanResultView != null) {
+                    pendingScanResultView.setText("已扫码: " + url.replace("https://","").replace(":8791/","").split("/")[0]);
+                    pendingScanResultView.setTextColor(0xFF34C759);
                 }
-                askDeviceName(url);
             } else {
                 Toast.makeText(this, "不是有效的链接", Toast.LENGTH_SHORT).show();
             }
