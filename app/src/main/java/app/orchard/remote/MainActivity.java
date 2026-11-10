@@ -399,13 +399,22 @@ public class MainActivity extends Activity {
     }
 
     private void scanQR() {
-        try {
-            Intent intent = new Intent("com.google.zxing.client.android.SCAN");
-            intent.putExtra("SCAN_MODE", "QR_CODE_MODE");
-            startActivityForResult(intent, 100);
-        } catch (Exception e) {
-            Toast.makeText(this, "请用微信或浏览器扫描电视上的二维码，然后回到这里", Toast.LENGTH_LONG).show();
-        }
+        com.google.android.gms.mlkit.vision.barcode.GmsBarcodeScanning.getClient(this)
+            .startScan()
+            .addOnSuccessListener(barcode -> {
+                String url = barcode.getRawValue();
+                if (url != null && url.startsWith("http")) {
+                    url = url.replace(":8790/", ":8791/").replace("http://", "https://");
+                    scannedUrl = url;
+                    if (scanResultView != null) {
+                        String host = url.replace("https://","").replace(":8791/","").split("/")[0];
+                        scanResultView.setText("已扫码: " + host);
+                        scanResultView.setTextColor(0xFF34C759);
+                    }
+                }
+            })
+            .addOnFailureListener(e ->
+                Toast.makeText(this, "扫码失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
     @Override
