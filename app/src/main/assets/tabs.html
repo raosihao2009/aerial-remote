@@ -7,7 +7,7 @@
 --bar:rgba(249,249,249,.82);--bar-line:rgba(0,0,0,.14)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
 -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-html,body{height:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif;touch-action:manipulation}
 #bar{height:100%;display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden;
 background:var(--bar);box-shadow:0 .5px 0 var(--bar-line);
 -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
@@ -24,24 +24,37 @@ font-size:10.5px;font-weight:500;font-family:inherit;cursor:pointer}
 <script>
 var ICON_TV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="12" rx="2"/><path d="M8 21h8"/></svg>';
 var ICON_ADD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg>';
-var timer=null;
+var LP=null,lastTap=0;
 function makeTab(cls,icon,label,onTap,onLong){
   var b=document.createElement('button');
   b.className='tab'+(cls?' '+cls:'');
   b.innerHTML=icon+'<span class="n"></span>';
   b.querySelector('.n').textContent=label;
-  var moved=false;
-  b.addEventListener('touchstart',function(){
+  var downX=0,downY=0,moved=false;
+  function tap(){
+    var now=Date.now();
+    if(now-lastTap<400)return;
+    lastTap=now;
+    onTap();
+  }
+  b.addEventListener('touchstart',function(e){
     moved=false;
-    clearTimeout(timer);
-    timer=setTimeout(function(){timer=null;if(onLong)onLong();},550);
+    var t=e.touches[0];downX=t.clientX;downY=t.clientY;
+    clearTimeout(LP);
+    LP=setTimeout(function(){LP=null;moved=true;if(onLong)onLong();},550);
   },{passive:true});
-  b.addEventListener('touchmove',function(){moved=true;clearTimeout(timer);timer=null;},{passive:true});
+  b.addEventListener('touchmove',function(e){
+    var t=e.touches[0];
+    if(Math.abs(t.clientX-downX)>12||Math.abs(t.clientY-downY)>12){
+      moved=true;clearTimeout(LP);LP=null;
+    }
+  },{passive:true});
   b.addEventListener('touchend',function(){
-    if(timer){clearTimeout(timer);timer=null;if(!moved)onTap();}
+    clearTimeout(LP);LP=null;
+    if(!moved)tap();
   });
-    b.addEventListener('touchcancel',function(){clearTimeout(timer);timer=null;});
-  b.addEventListener('click',function(e){e.preventDefault();});
+  b.addEventListener('touchcancel',function(){clearTimeout(LP);LP=null;});
+  b.addEventListener('click',function(e){e.preventDefault();if(!moved)tap();});
   b.addEventListener('contextmenu',function(e){e.preventDefault();});
   return b;
 }
