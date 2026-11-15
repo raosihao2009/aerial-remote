@@ -1,13 +1,11 @@
 package app.orchard.remote;
 
 import android.app.Activity;
-import android.app.DownloadManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.ViewGroup;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
@@ -90,10 +88,11 @@ public class MainActivity extends Activity {
             }
         });
         // WebView 遇到附件响应默认什么都不做; 不挂这个监听器, 网页里点导出不会有任何反应。
+        // 套壳 WebView 自己不下载, 直接把链接交给系统浏览器: 浏览器能正常下完整份, 也能显示大小。
         contentWv.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String disposition, String mime, long length) {
-                startDownload(url, userAgent, disposition, mime);
+                openInBrowser(url);
             }
         });
         contentWv.addJavascriptInterface(new ErrorBridge(), "Android");
@@ -120,12 +119,10 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * 附件下载交给系统 DownloadManager。WebView 自己信任 TV 的自签证书, 但 DownloadManager
-     * 走独立的 HTTPS 栈会校验失败, 所以把 8791 的 HTTPS 改回 8790 的明文 HTTP(同一台 TV,
-     * 令牌路径原样保留), 局域网内没有风险。
+     * 附件链接交给系统浏览器下载。WebView 自己信任 TV 的自签证书, 但系统浏览器打开 8791 的
+     * HTTPS 会弹证书警告, 所以把 8791 改走同一台 TV 的 8790 明文 HTTP, 令牌路径原样保留。
      */
-    private void startDownload(String url, String userAgent, String disposition, String mime) {
-        String name = pickFileName(disposition, url);
+    private void openInBrowser(String url) {
         Uri u = Uri.parse(url);
         int port = u.getPort();
         if ("https".equals(u.getScheme()) && port == 8791) port = 8790;
@@ -135,34 +132,17 @@ public class MainActivity extends Activity {
                 .scheme("http")
                 .encodedAuthority(host + (port == -1 ? "" : ":" + port))
                 .build().toString();
-        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(target));
-        req.setMimeType(mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
-        if (userAgent != null) req.addRequestHeader("User-Agent", userAgent);
-        req.setTitle(name);
-        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-        req.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
-        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-        if (dm == null) {
-            Toast.makeText(this, "下载服务不可用", Toast.LENGTH_SHORT).show();
-            return;
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(target));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        // 弹应用选择器, 让用户挑用哪个浏览器下载, 而不是直接丢给默认浏览器。
+        Intent chooser = Intent.createChooser(intent, "选择浏览器");
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(chooser);
+            Toast.makeText(this, "选择浏览器后开始下载", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "没有可用的浏览器", Toast.LENGTH_SHORT).show();
         }
-        dm.enqueue(req);
-        Toast.makeText(this, "已开始下载：" + name, Toast.LENGTH_SHORT).show();
-    }
-
-    private String pickFileName(String disposition, String url) {
-        String name = null;
-        if (disposition != null) {
-            int i = disposition.indexOf("filename=");
-            if (i >= 0) name = disposition.substring(i + 9).replaceAll("[\"'\\\\/]", "").trim();
-        }
-        if (name == null || name.isEmpty()) {
-            String seg = Uri.parse(url).getLastPathSegment();
-            if (seg != null) name = seg.replaceAll("[\"'\\\\/]", "").trim();
-        }
-        if (name == null || name.isEmpty()) name = "aerial-backup.zip";
-        return name;
     }
 
     private int count() { return sp.getInt("count", 0); }
