@@ -1,12 +1,15 @@
 package app.orchard.remote;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.ViewGroup;
+import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -14,6 +17,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -85,6 +89,13 @@ public class MainActivity extends Activity {
                 }
             }
         });
+        // WebView 遇到附件响应默认什么都不做; 不挂这个监听器, 网页里点导出不会有任何反应。
+        contentWv.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String disposition, String mime, long length) {
+                startDownload(url, userAgent, disposition, mime);
+            }
+        });
         contentWv.addJavascriptInterface(new ErrorBridge(), "Android");
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -106,6 +117,52 @@ public class MainActivity extends Activity {
 
     private int dp(int v) {
         return (int) (v * getResources().getDisplayMetrics().density);
+    }
+
+    /**
+     * 附件下载交给系统 DownloadManager。WebView 自己信任 TV 的自签证书, 但 DownloadManager
+     * 走独立的 HTTPS 栈会校验失败, 所以把 8791 的 HTTPS 改回 8790 的明文 HTTP(同一台 TV,
+     * 令牌路径原样保留), 局域网内没有风险。
+     */
+    private void startDownload(String url, String userAgent, String disposition, String mime) {
+        String name = pickFileName(disposition, url);
+        Uri u = Uri.parse(url);
+        int port = u.getPort();
+        if ("https".equals(u.getScheme()) && port == 8791) port = 8790;
+        String host = u.getHost();
+        if (host == null) return;
+        String target = u.buildUpon()
+                .scheme("http")
+                .encodedAuthority(host + (port == -1 ? "" : ":" + port))
+                .build().toString();
+        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(target));
+        req.setMimeType(mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
+        if (userAgent != null) req.addRequestHeader("User-Agent", userAgent);
+        req.setTitle(name);
+        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+        req.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
+        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        if (dm == null) {
+            Toast.makeText(this, "下载服务不可用", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        dm.enqueue(req);
+        Toast.makeText(this, "已开始下载：" + name, Toast.LENGTH_SHORT).show();
+    }
+
+    private String pickFileName(String disposition, String url) {
+        String name = null;
+        if (disposition != null) {
+            int i = disposition.indexOf("filename=");
+            if (i >= 0) name = disposition.substring(i + 9).replaceAll("[\"'\\\\/]", "").trim();
+        }
+        if (name == null || name.isEmpty()) {
+            String seg = Uri.parse(url).getLastPathSegment();
+            if (seg != null) name = seg.replaceAll("[\"'\\\\/]", "").trim();
+        }
+        if (name == null || name.isEmpty()) name = "aerial-backup.zip";
+        return name;
     }
 
     private int count() { return sp.getInt("count", 0); }
