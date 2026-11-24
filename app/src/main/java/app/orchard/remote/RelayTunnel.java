@@ -1,5 +1,6 @@
 package app.orchard.remote;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -45,7 +46,7 @@ final class RelayTunnel {
     }
 
     /** 配对校验: secret 对得上就返回中继给的设备名和在线状态, 否则抛 RelayException。 */
-    static JSONObject pair(String base, String id, String secret) throws IOException {
+    static JSONObject pair(String base, String id, String secret) throws IOException, JSONException {
         JSONObject body = new JSONObject().put("id", id).put("secret", secret);
         HttpResult r = postJson(base + "/phone/pair", body.toString());
         JSONObject j = parse(r.text);
@@ -59,7 +60,7 @@ final class RelayTunnel {
     }
 
     /** 经中继取电视首页 HTML(走 GET /)。 */
-    static String fetchPage(String base, String id, String secret) throws IOException {
+    static String fetchPage(String base, String id, String secret) throws IOException, JSONException {
         JSONObject res = request(base, id, secret, "GET", "/", "{}", null);
         return decodeB64(res.optString("bodyB64", ""));
     }
@@ -69,7 +70,8 @@ final class RelayTunnel {
      * 超时、离线、鉴权失败都转成 RelayException。
      */
     static JSONObject request(String base, String id, String secret, String method,
-                              String path, String headersJson, String bodyB64) throws IOException {
+                              String path, String headersJson, String bodyB64)
+            throws IOException, JSONException {
         String rid = "r" + (ridSeq++) + "_" + System.currentTimeMillis();
         JSONObject headers;
         try {
