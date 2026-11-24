@@ -50,7 +50,7 @@ font-family:inherit;cursor:pointer}
 </div>
 <div class="list" id="rowLan"><input id="url" placeholder="设备地址，如 192.168.1.4:8791" inputmode="url"></div>
 <div class="list hidden" id="rowRemote">
-  <input id="base" placeholder="中继地址，如 relay.example.com" inputmode="url">
+  <input id="base" placeholder="中继地址（默认即可）" inputmode="url">
   <input id="code" placeholder="设备码（电视上显示的 10 位）" inputmode="text" autocomplete="off">
   <input id="secret" placeholder="密钥（电视上显示的 20 位）" inputmode="text" autocomplete="off">
 </div>
@@ -155,7 +155,7 @@ if(mode==='edit'){
   }
   ok.disabled=!(nameInput.value.trim());
 }else{
-  urlInput.value='';baseInput.value='';codeInput.value='';secretInput.value='';nameInput.value='';
+  urlInput.value='';baseInput.value='https://relay.qust.me';codeInput.value='';secretInput.value='';nameInput.value='';
   ok.disabled=true;
 }
 document.getElementById('tabLan').addEventListener('click',function(){remote=false;refresh();});
