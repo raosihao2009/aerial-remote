@@ -655,11 +655,13 @@ public class MainActivity extends Activity {
                                 ? new JSONObject() : res.optJSONObject("headers"));
                         out.put("text", RelayTunnel.decodeBodyText(res));
                     } catch (RelayTunnel.RelayException e) {
-                        out.put("status", 0).put("reason", e.getMessage());
+                        try { out.put("status", 0).put("reason", e.getMessage()); } catch (Exception ignored) { }
                     } catch (Exception e) {
-                        out.put("status", 0).put("reason", "中继错误");
+                        try { out.put("status", 0).put("reason", "中继错误"); } catch (Exception ignored) { }
                     }
-                    deliver(rid, out.toString());
+                    String payload;
+                    try { payload = out.toString(); } catch (Exception e) { payload = "{\"status\":0,\"reason\":\"中继错误\"}"; }
+                    deliver(rid, payload);
                 }
             }).start();
         }
