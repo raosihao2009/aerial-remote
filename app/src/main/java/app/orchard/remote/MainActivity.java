@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
@@ -21,6 +22,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
+    /** B 站手机客户端的包名。 */
+    private static final String BILI = "tv.danmaku.bili";
+
     private FrameLayout root;
     private WebView contentWv;
     private WebView tabsWv;
@@ -42,12 +46,19 @@ public class MainActivity extends Activity {
         contentWv.getSettings().setDatabaseEnabled(true);
         contentWv.getSettings().setMediaPlaybackRequiresUserGesture(false);
         contentWv.setBackgroundColor(Color.WHITE);
+        // 滑到底/顶再拖时, Android 12 会给 WebView 做一段拉伸回弹(overscroll stretch),
+        // 整页跟着被拉长, 看着像页面坏了。这颗开关直接把那段效果关掉, 到边就停。
+        contentWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         contentWv.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
-                if (url != null && url.startsWith("file:///android_asset")) return false;
-                v.loadUrl(url);
-                return true;
+                if (url == null || url.isEmpty()) return true;
+                if (url.startsWith("file:///android_asset")) return false;
+                // 这一页只管「这台电视」: 同一台电视的主机地址继续在页里走, 别的一律交给系统。
+                // 以前把什么地址都塞回同一个 WebView, 于是 B 站的登录链接、bilibili:// 之类的
+                // 自定义 scheme 都被当成设备地址, 一路掉到 error.html 的 -10(地址格式不对)。
+                if (isSameDevice(url)) { v.loadUrl(url); return true; }
+                return openExternally(url);
             }
             @Override
             public void onReceivedError(WebView v, android.webkit.WebResourceRequest req, android.webkit.WebResourceError err) {
@@ -67,6 +78,29 @@ public class MainActivity extends Activity {
             }
         });
         contentWv.setWebChromeClient(new WebChromeClient() {
+            // 页面里 window.open 出来的新窗口也交给系统, 不在这里再开一个 WebView。
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message msg) {
+                String hit = null;
+                try {
+                    WebView.HitTestResult r = view.getHitTestResult();
+                    if (r != null) hit = r.getExtra();
+                } catch (Exception e) { }
+                if (hit != null && !hit.isEmpty()) { openExternally(hit); return true; }
+                final WebView tmp = new WebView(MainActivity.this);
+                tmp.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String u) {
+                        openExternally(u);
+                        tmp.destroy();
+                        return true;
+                    }
+                });
+                WebView.WebViewTransport t = (WebView.WebViewTransport) msg.obj;
+                t.setWebView(tmp);
+                msg.sendToTarget();
+                return true;
+            }
             @Override
             public void onPermissionRequest(PermissionRequest req) {
                 req.grant(req.getResources());
@@ -104,6 +138,7 @@ public class MainActivity extends Activity {
         tabsWv = new WebView(this);
         tabsWv.getSettings().setJavaScriptEnabled(true);
         tabsWv.setBackgroundColor(Color.TRANSPARENT);
+        tabsWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         tabsWv.setWebViewClient(new WebViewClient());
         tabsWv.addJavascriptInterface(new TabsBridge(), "Android");
         FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(
@@ -112,6 +147,78 @@ public class MainActivity extends Activity {
         tabsWv.loadUrl("file:///android_asset/tabs.html");
 
         setContentView(root);
+    }
+
+    /** 是不是这台电视自己的地址: 同主机就算(电视同时开着 8790 明文和 8791 自签证书两个口)。 */
+    private boolean isSameDevice(String url) {
+        Uri u = Uri.parse(url);
+        String scheme = u.getScheme();
+        if (scheme == null) return false;
+        if (!"http".equals(scheme) && !"https".equals(scheme)) return false;
+        String host = u.getHost();
+        String curHost = Uri.parse(currentUrl()).getHost();
+        return host != null && curHost != null && host.equalsIgnoreCase(curHost);
+    }
+
+    /**
+     * 把页面里点出来的外部地址交给系统: http/https 由用户挑浏览器或 App 打开, 其他 scheme
+     * (bilibili://、intent://、market:// 之类) 直接丢给系统去解析。打不开就提示, 不能把整页
+     * 顶成 error.html。
+     */
+    private boolean openExternally(String url) {
+        if (url == null || url.isEmpty()) return true;
+        Uri u = Uri.parse(url);
+        String scheme = u.getScheme() == null ? "" : u.getScheme().toLowerCase();
+        // B 站那条登录链接: 手机里装着 B 站 App 就直接点名交给它, 没装才走浏览器。
+        // 以前一律弹选择器让用户自己挑, 装着 B 站也要多点一下。
+        if (("http".equals(scheme) || "https".equals(scheme)) && isBiliHost(u.getHost()) && hasPackage(BILI)) {
+            Intent direct = new Intent(Intent.ACTION_VIEW, u).setPackage(BILI);
+            direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { startActivity(direct); return true; } catch (Exception ignored) {
+                // B 站不收这条链接(版本差异): 下面照常交给系统, 不在这里顶成提示。
+            }
+        }
+        try {
+            Intent intent;
+            if ("intent".equals(scheme)) {
+                intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                if (intent.getPackage() != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    try { startActivity(intent); return true; } catch (Exception ignored) { }
+                }
+                // 点名的包没装: 按 intent:// 自己给的退路走。
+                String fallback = intent.getStringExtra("browser_fallback_url");
+                if (fallback != null && !fallback.isEmpty()) return openExternally(fallback);
+            } else {
+                intent = new Intent(Intent.ACTION_VIEW, u);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            // 默认浏览器(或唯一能处理的应用)直接开, 系统要用户挑的时候它自己会弹。
+            try { startActivity(intent); }
+            catch (Exception e) { startActivity(Intent.createChooser(intent, "选择打开方式").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+        } catch (Exception e) {
+            Toast.makeText(this, "没有能打开这个地址的应用", Toast.LENGTH_SHORT).show();
+        }
+        return true;
+    }
+
+    /** 手机里装没装这个包: 不查它能不能处理意图, 只按包名判断。 */
+    private boolean hasPackage(String pkg) {
+        try {
+            getPackageManager().getApplicationInfo(pkg, 0);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** B 站的域名(含 b23 短链): 只有这些地址才优先交给 B 站 App。 */
+    private boolean isBiliHost(String host) {
+        if (host == null) return false;
+        String h = host.toLowerCase();
+        return h.equals("bilibili.com") || h.endsWith(".bilibili.com")
+                || h.equals("b23.tv") || h.endsWith(".b23.tv")
+                || h.equals("bili2233.cn") || h.endsWith(".bili2233.cn");
     }
 
     private int dp(int v) {
@@ -186,6 +293,7 @@ public class MainActivity extends Activity {
             sheetWv = new WebView(this);
             sheetWv.getSettings().setJavaScriptEnabled(true);
             sheetWv.setBackgroundColor(Color.TRANSPARENT);
+            sheetWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
             sheetWv.setWebViewClient(new WebViewClient());
             sheetWv.addJavascriptInterface(new SheetBridge(), "Android");
         }

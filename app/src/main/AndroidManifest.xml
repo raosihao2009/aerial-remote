@@ -4,6 +4,14 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Android 11 起, 不声明就是查不到别的 App: 之前判断「手机装没装 B 站」一律为否, 于是有 B 站也走浏览器。 -->
+    <queries>
+        <package android:name="tv.danmaku.bili" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
     <application
         android:label="Aerial遥控器"
         android:icon="@mipmap/ic_launcher"
