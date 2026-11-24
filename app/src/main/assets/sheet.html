@@ -33,14 +33,30 @@ input{width:100%;border:0;background:none;outline:none;font-size:16px;color:var(
 padding:13px 16px;font-family:inherit}
 input::placeholder{color:var(--tertiary)}
 .foot{color:var(--secondary);font-size:13px;margin:10px 4px 0;line-height:1.4}
+.err{color:var(--danger);font-size:13px;margin:10px 4px 0;line-height:1.4;min-height:18px}
+.seg{display:flex;background:var(--fill);border-radius:10px;padding:2px;margin-bottom:10px}
+.seg button{flex:1;border:0;background:none;min-height:36px;border-radius:8px;font-size:15px;color:var(--secondary);
+font-family:inherit;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--label);font-weight:600}
+.hidden{display:none}
 </style></head><body>
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet">
 <div class="grab" id="grab"></div>
 <h3 id="title">添加TV设备</h3>
-<div class="list" id="row1"><input id="url" placeholder="设备地址，如 192.168.1.4:8791" inputmode="url"></div>
-<div class="list" id="row2"><input id="name" placeholder="设备名称，如 当贝盒子"></div>
+<div class="seg" id="seg">
+  <button id="tabLan" type="button">同一WiFi</button>
+  <button id="tabRemote" type="button">远程</button>
+</div>
+<div class="list" id="rowLan"><input id="url" placeholder="设备地址，如 192.168.1.4:8791" inputmode="url"></div>
+<div class="list hidden" id="rowRemote">
+  <input id="base" placeholder="中继地址，如 relay.example.com" inputmode="url">
+  <input id="code" placeholder="设备码（电视上显示的 10 位）" inputmode="text" autocomplete="off">
+  <input id="secret" placeholder="密钥（电视上显示的 20 位）" inputmode="text" autocomplete="off">
+</div>
+<div class="list"><input id="name" placeholder="设备名称，如 当贝盒子"></div>
 <div class="foot" id="foot">填写电视局域网地址和名称，地址会自动使用 HTTPS。</div>
+<div class="err" id="err"></div>
 <div class="list" id="btnOk"><button class="item center strong tint" id="ok" disabled>确定</button></div>
 <div class="list" id="btnDel" style="display:none"><button class="item center danger">从列表删除</button></div>
 <script>
@@ -49,10 +65,17 @@ location.search.replace(/^\?/,'').split('&').forEach(function(kv){
   if(!kv)return;var a=kv.split('=');P[decodeURIComponent(a[0])]=decodeURIComponent(a[1]||'');
 });
 var mode=P.mode||'add';
+var relayEntry=P.url&&P.url.indexOf('relay://')===0;
+var remote=relayEntry;
 var urlInput=document.getElementById('url');
+var baseInput=document.getElementById('base');
+var codeInput=document.getElementById('code');
+var secretInput=document.getElementById('secret');
 var nameInput=document.getElementById('name');
 var ok=document.getElementById('ok');
-function norm(v){
+var err=document.getElementById('err');
+
+function normLan(v){
   v=(v||'').trim();
   if(!v)return'';
   if(!/^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//.test(v))v='https://'+v;
@@ -64,14 +87,50 @@ function norm(v){
   if(rest.charAt(0)!=='/')rest='/'+rest.split(/[?#]/)[0];
   return 'https://'+host+':8791'+rest;
 }
+function normBase(v){
+  v=(v||'').trim();
+  if(!v)return'';
+  if(!/^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//.test(v))v='https://'+v;
+  while(v.charAt(v.length-1)==='/')v=v.slice(0,-1);
+  return v;
+}
+function showErr(msg){err.textContent=msg||'';}
+function refresh(){
+  err.textContent='';
+  document.getElementById('tabLan').classList.toggle('on',!remote);
+  document.getElementById('tabRemote').classList.toggle('on',remote);
+  document.getElementById('rowLan').classList.toggle('hidden',remote);
+  document.getElementById('rowRemote').classList.toggle('hidden',!remote);
+  if(mode==='edit'){
+    document.getElementById('title').textContent=relayEntry?'编辑远程设备':'编辑设备';
+    document.getElementById('foot').textContent=relayEntry?'设备码和中继地址不可改，只能改名称和密钥。':'地址改了会自动修正端口和协议。';
+  }else{
+    document.getElementById('foot').textContent=remote
+      ? '填中继地址、电视上显示的设备码和密钥；不在同一 WiFi 也能遥控。'
+      : '填写电视局域网地址和名称，地址会自动使用 HTTPS。';
+  }
+  check();
+}
 function check(){
   if(mode==='edit'){
-    ok.disabled=!nameInput.value.trim();
+    if(relayEntry){
+      ok.disabled=!(nameInput.value.trim()&&secretInput.value.trim());
+    }else{
+      ok.disabled=!nameInput.value.trim();
+    }
     return;
   }
-  var u=norm(urlInput.value);
-  ok.disabled=!(u&&nameInput.value.trim());
-  document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
+  if(remote){
+    var b=normBase(baseInput.value);
+    var c=codeInput.value.trim();
+    var s=secretInput.value.trim();
+    ok.disabled=!(b&&c&&s&&nameInput.value.trim());
+    document.getElementById('foot').textContent=b?('将连接 '+b):'填中继地址、设备码和密钥';
+  }else{
+    var u=normLan(urlInput.value);
+    ok.disabled=!(u&&nameInput.value.trim());
+    document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
+  }
 }
 function show(){
   document.getElementById('scrim').classList.add('open');
@@ -83,27 +142,46 @@ function hide(){
   setTimeout(function(){Android.close();},220);
 }
 if(mode==='edit'){
-  document.getElementById('title').textContent='编辑设备';
-  document.getElementById('foot').textContent='地址改了会自动修正端口和协议。';
   document.getElementById('btnDel').style.display='';
-  urlInput.value=P.url||'';
   nameInput.value=P.name||'';
-  ok.disabled=!(norm(urlInput.value)&&nameInput.value.trim());
+  if(relayEntry){
+    codeInput.value=P.url.slice('relay://'.length);
+    codeInput.disabled=true;
+    baseInput.value=P.relay||'';
+    baseInput.disabled=true;
+    secretInput.value=P.secret||'';
+  }else{
+    urlInput.value=P.url||'';
+  }
+  ok.disabled=!(nameInput.value.trim());
 }else{
-  urlInput.value='';
-  nameInput.value='';
+  urlInput.value='';baseInput.value='';codeInput.value='';secretInput.value='';nameInput.value='';
   ok.disabled=true;
 }
+document.getElementById('tabLan').addEventListener('click',function(){remote=false;refresh();});
+document.getElementById('tabRemote').addEventListener('click',function(){remote=true;refresh();});
 urlInput.addEventListener('input',check);
+baseInput.addEventListener('input',check);
+codeInput.addEventListener('input',check);
+secretInput.addEventListener('input',check);
 nameInput.addEventListener('input',check);
 ok.addEventListener('click',function(){
   if(mode==='edit'){
-    Android.saveEdit(P.url,norm(urlInput.value),nameInput.value.trim());
+    if(relayEntry){
+      Android.saveEditRemote(P.url,nameInput.value.trim(),secretInput.value.trim());
+    }else{
+      Android.saveEdit(P.url,normLan(urlInput.value),nameInput.value.trim());
+    }
+    hide();
+  }else if(remote){
+    Android.saveRemote(normBase(baseInput.value),codeInput.value.trim(),secretInput.value.trim(),nameInput.value.trim());
   }else{
-    Android.save(norm(urlInput.value),nameInput.value.trim());
+    Android.save(normLan(urlInput.value),nameInput.value.trim());
+    hide();
   }
-  hide();
 });
+// 配对失败时 Java 回调用这个把原因显示在面板里, 面板不关。
+window.RemotePair={fail:function(msg){showErr(msg);}};
 document.querySelector('#btnDel button').addEventListener('click',function(){
   Android.remove(P.url);hide();
 });
@@ -120,5 +198,6 @@ grab.addEventListener('touchend',function(){
   else{sheet.style.transform='';}
   dy=0;
 });
+refresh();
 setTimeout(show,30);
 </script></body></html>

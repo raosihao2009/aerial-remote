@@ -23,6 +23,7 @@ font-size:10.5px;font-weight:500;font-family:inherit;cursor:pointer}
 <div id="bar"></div>
 <script>
 var ICON_TV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="12" rx="2"/><path d="M8 21h8"/></svg>';
+var ICON_CLOUD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18.5a4.5 4.5 0 0 1-.42-8.98 5.5 5.5 0 0 1 10.72-1.34A4 4 0 0 1 17.5 18.5z"/></svg>';
 var ICON_ADD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg>';
 var LP=null,lastTap=0;
 function makeTab(cls,icon,label,onTap,onLong){
@@ -62,7 +63,7 @@ function renderTabs(list,current){
   var bar=document.getElementById('bar');
   bar.innerHTML='';
   list.forEach(function(d){
-    bar.appendChild(makeTab(d.url===current?'on':'',ICON_TV,d.name||'TV',
+    bar.appendChild(makeTab(d.url===current?'on':'',d.relay?ICON_CLOUD:ICON_TV,d.name||'TV',
       function(){Android.openUrl(d.url);},
       function(){Android.rename(d.url,d.name);}));
   });
