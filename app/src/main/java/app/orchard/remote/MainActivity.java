@@ -21,59 +21,9 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class MainActivity extends Activity {
     /** B 站手机客户端的包名。 */
     private static final String BILI = "tv.danmaku.bili";
-
-    /** 中继模式合成地址前缀: relay://<设备码>; 中继基址和密钥另存 relay_/secret_ 条目。 */
-    private static final String RELAY_SCHEME = "relay://";
-
-    /**
-     * 注入到中继取回的电视首页前面的垫片: 把页面的同源 fetch 拦下来交给 Android 桥接,
-     * 走中继隧道; 页面看不到真实电视地址, 也不会触发 location 导航把注入页丢掉。
-     */
-    private static final String SHIM = "<script>" +
-            "(function(){" +
-            "var seq=1,pending={};" +
-            "function b64encode(s){var bytes=new TextEncoder().encode(s);var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin);}" +
-            "window.RemoteBridge={onResult:function(rid,raw){" +
-            "var p=pending[rid];if(!p)return;delete pending[rid];" +
-            "var d;try{d=JSON.parse(raw);}catch(e){p.reject(new Error('中继响应格式错误'));return;}" +
-            "if(d.status<=0){p.reject(new Error(d.reason||'中继错误'));return;}" +
-            "var text=d.text||'';" +
-            "p.resolve({status:d.status,ok:d.status>=200&&d.status<300," +
-            "headers:{get:function(k){var h=d.headers||{};var lk=(k||'').toLowerCase();for(var kk in h){if(kk.toLowerCase()===lk)return h[kk];}return null;}}," +
-            "text:function(){return Promise.resolve(text);}," +
-            "json:function(){return Promise.resolve(text?JSON.parse(text):null);}}});" +
-            "}};" +
-            "function call(method,url,headers,bodyStr){" +
-            "var rid='r'+(seq++)+'_'+Date.now();" +
-            "if(method!=='GET'&&bodyStr&&(!headers||!headers['Content-Type'])){headers=Object.assign({},headers,{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'});}" +
-            "return new Promise(function(resolve,reject){" +
-            "pending[rid]={resolve:resolve,reject:reject};" +
-            "var b64=bodyStr?b64encode(bodyStr):null;" +
-            "window.AndroidRemote.send(rid,method,url,JSON.stringify(headers||{}),b64);" +
-            "});" +
-            "}" +
-            "function isBinary(b){return (typeof FormData!=='undefined'&&b instanceof FormData)||b instanceof Blob||b instanceof File;}" +
-            "var origFetch=window.fetch.bind(window);" +
-            "window.fetch=function(input,init){" +
-            "var url=typeof input==='string'?input:(input&&input.url)||'';" +
-            "if(/^https?:/.test(url))return origFetch.apply(this,arguments);" +
-            "var method=(init&&init.method)||(input&&input.method)||'GET';" +
-            "var headers=(init&&init.headers)||{};" +
-            "var body=init?init.body:(input&&input.body);" +
-            "if(isBinary(body))return Promise.reject(new Error('二进制文件请在同一WiFi下传输'));" +
-            "var bodyStr=body==null?null:String(body);" +
-            "return call(method,url,headers,bodyStr);" +
-            "};" +
-            "window.location.reload=function(){};" +
-            "window.location.replace=function(){};" +
-            "})();" +
-            "</script>";
 
     private FrameLayout root;
     private WebView contentWv;
@@ -180,7 +130,6 @@ public class MainActivity extends Activity {
             }
         });
         contentWv.addJavascriptInterface(new ErrorBridge(), "Android");
-        contentWv.addJavascriptInterface(new RemoteBridge(), "AndroidRemote");
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         clp.topMargin = dp(50);
@@ -198,15 +147,6 @@ public class MainActivity extends Activity {
         tabsWv.loadUrl("file:///android_asset/tabs.html");
 
         setContentView(root);
-    }
-
-    /** 是不是中继条目。 */
-    private static boolean isRelay(String url) {
-        return url != null && url.startsWith(RELAY_SCHEME);
-    }
-
-    private static String relayId(String url) {
-        return url == null ? "" : url.substring(RELAY_SCHEME.length());
     }
 
     /** 是不是这台电视自己的地址: 同主机就算(电视同时开着 8790 明文和 8791 自签证书两个口)。 */
@@ -230,6 +170,7 @@ public class MainActivity extends Activity {
         Uri u = Uri.parse(url);
         String scheme = u.getScheme() == null ? "" : u.getScheme().toLowerCase();
         // B 站那条登录链接: 手机里装着 B 站 App 就直接点名交给它, 没装才走浏览器。
+        // 以前一律弹选择器让用户自己挑, 装着 B 站也要多点一下。
         if (("http".equals(scheme) || "https".equals(scheme)) && isBiliHost(u.getHost()) && hasPackage(BILI)) {
             Intent direct = new Intent(Intent.ACTION_VIEW, u).setPackage(BILI);
             direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -317,17 +258,6 @@ public class MainActivity extends Activity {
 
     private String nameAt(int i) { return sp.getString("name_" + i, "TV"); }
 
-    private String relayAt(int i) { return sp.getString("relay_" + i, ""); }
-
-    private String secretAt(int i) { return sp.getString("secret_" + i, ""); }
-
-    private int indexOf(String url) {
-        for (int i = 0; i < count(); i++) {
-            if (url.equals(urlAt(i))) return i;
-        }
-        return -1;
-    }
-
     private String currentUrl() { return sp.getString("current", ""); }
 
     private void setCurrent(String url) { sp.edit().putString("current", url).apply(); }
@@ -339,7 +269,6 @@ public class MainActivity extends Activity {
             try {
                 o.put("url", urlAt(i));
                 o.put("name", nameAt(i));
-                o.put("relay", isRelay(urlAt(i)));
             } catch (Exception e) {
             }
             arr.put(o);
@@ -352,56 +281,14 @@ public class MainActivity extends Activity {
 
     private void open(String url) {
         setCurrent(url);
-        if (isRelay(url)) openRelay(url);
-        else contentWv.loadUrl(url);
+        contentWv.loadUrl(url);
         refreshTabs();
-    }
-
-    /** 中继条目: 后台配对并经中继取首页, 再把带垫片的页面塞进内容 WebView。 */
-    private void openRelay(String url) {
-        final int idx = indexOf(url);
-        if (idx < 0) { showError(RelayTunnel.NETWORK); return; }
-        final String base = relayAt(idx);
-        final String secret = secretAt(idx);
-        final String id = relayId(url);
-        contentWv.loadUrl("about:blank");
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    RelayTunnel.pair(base, id, secret);
-                    final String html = RelayTunnel.fetchPage(base, id, secret);
-                    runOnUiThread(new Runnable() {
-                        @Override public void run() { loadRelayPage(html); }
-                    });
-                } catch (RelayTunnel.RelayException e) {
-                    final int code = e.code;
-                    runOnUiThread(new Runnable() {
-                        @Override public void run() { showError(code); }
-                    });
-                } catch (Exception e) {
-                    runOnUiThread(new Runnable() {
-                        @Override public void run() { showError(RelayTunnel.NETWORK); }
-                    });
-                }
-            }
-        }).start();
-    }
-
-    private void loadRelayPage(String html) {
-        contentWv.loadDataWithBaseURL("https://remote.local/", SHIM + html, "text/html", "UTF-8", null);
     }
 
     private void showSheet(String mode, String url, String name) {
         sheetMode = mode;
         String q = "?mode=" + Uri.encode(mode) + "&url=" + Uri.encode(url == null ? "" : url)
                 + "&name=" + Uri.encode(name == null ? "" : name);
-        if (isRelay(url)) {
-            int idx = indexOf(url);
-            if (idx >= 0) {
-                q += "&relay=" + Uri.encode(relayAt(idx)) + "&secret=" + Uri.encode(secretAt(idx));
-            }
-        }
         if (sheetWv == null) {
             sheetWv = new WebView(this);
             sheetWv.getSettings().setJavaScriptEnabled(true);
@@ -440,16 +327,14 @@ public class MainActivity extends Activity {
         // Another device already on this address: swap it out instead of duplicating.
         for (int i = 0; i < count(); i++) {
             if (i != idx && newUrl.equals(urlAt(i))) {
-                sp.edit().remove("url_" + i).remove("name_" + i)
-                        .remove("relay_" + i).remove("secret_" + i).apply();
+                sp.edit().remove("url_" + i).remove("name_" + i).apply();
                 break;
             }
         }
-        sp.edit().putString("url_" + idx, newUrl).putString("name_" + idx, newName)
-                .remove("relay_" + idx).remove("secret_" + idx).apply();
+        sp.edit().putString("url_" + idx, newUrl).putString("name_" + idx, newName).apply();
         if (oldUrl.equals(currentUrl())) {
             sp.edit().putString("current", newUrl).apply();
-            open(newUrl);
+            contentWv.loadUrl(newUrl);
         }
         refreshTabs();
     }
@@ -461,22 +346,15 @@ public class MainActivity extends Activity {
     }
 
     private void addDevice(String url, String name) {
-        addDevice(url, name, "", "");
-    }
-
-    private void addDevice(String url, String name, String relay, String secret) {
         for (int i = 0; i < count(); i++) {
             if (url.equals(urlAt(i))) {
-                sp.edit().putString("name_" + i, name)
-                        .putString("relay_" + i, relay).putString("secret_" + i, secret).apply();
+                sp.edit().putString("name_" + i, name).apply();
                 open(url);
                 return;
             }
         }
         int n = count();
-        sp.edit().putString("url_" + n, url).putString("name_" + n, name)
-                .putString("relay_" + n, relay).putString("secret_" + n, secret)
-                .putInt("count", n + 1).apply();
+        sp.edit().putString("url_" + n, url).putString("name_" + n, name).putInt("count", n + 1).apply();
         open(url);
     }
 
@@ -492,30 +370,22 @@ public class MainActivity extends Activity {
 
     private void removeDevice(String url) {
         int n = count();
-        List<String> urls = new ArrayList<>();
-        List<String> names = new ArrayList<>();
-        List<String> relays = new ArrayList<>();
-        List<String> secrets = new ArrayList<>();
+        java.util.List<String> urls = new java.util.ArrayList<>();
+        java.util.List<String> names = new java.util.ArrayList<>();
         for (int i = 0; i < n; i++) {
             if (url.equals(urlAt(i))) continue;
             urls.add(urlAt(i));
             names.add(nameAt(i));
-            relays.add(relayAt(i));
-            secrets.add(secretAt(i));
         }
         String cur = currentUrl();
         SharedPreferences.Editor ed = sp.edit();
         for (int i = 0; i < n; i++) {
             ed.remove("url_" + i);
             ed.remove("name_" + i);
-            ed.remove("relay_" + i);
-            ed.remove("secret_" + i);
         }
         for (int i = 0; i < urls.size(); i++) {
             ed.putString("url_" + i, urls.get(i));
             ed.putString("name_" + i, names.get(i));
-            ed.putString("relay_" + i, relays.get(i));
-            ed.putString("secret_" + i, secrets.get(i));
         }
         ed.putInt("count", urls.size());
         String next = urls.isEmpty() ? "" : urls.get(0);
@@ -523,7 +393,7 @@ public class MainActivity extends Activity {
         ed.apply();
         if (url.equals(cur)) {
             if (next.isEmpty()) contentWv.loadUrl("about:blank");
-            else open(next);
+            else contentWv.loadUrl(next);
         }
         refreshTabs();
         final int cc = urls.size();
@@ -538,7 +408,7 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 public void run() {
                     refreshTabs();
-                    if (!currentUrl().isEmpty()) open(currentUrl());
+                    if (!currentUrl().isEmpty()) contentWv.loadUrl(currentUrl());
                     else if (count() > 0) open(urlAt(0));
                     else showSheet("add", "", "");
                 }
@@ -574,53 +444,6 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() { public void run() { updateDevice(oldUrl, newUrl, name); } });
         }
 
-        /** 远程条目: 先经中继配对, 成功才落库并打开; 失败把原因回传给面板展示。 */
-        @android.webkit.JavascriptInterface
-        public void saveRemote(final String base, final String id, final String secret, final String name) {
-            runOnUiThread(new Runnable() {
-                public void run() {
-                    final String b = RelayTunnel.normalizeBase(base);
-                    new Thread(new Runnable() {
-                        public void run() {
-                            try {
-                                RelayTunnel.pair(b, id, secret);
-                                runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        addDevice(RELAY_SCHEME + id, name, b, secret);
-                                        hideSheet();
-                                    }
-                                });
-                            } catch (final Exception e) {
-                                final String msg = e.getMessage() == null ? "配对失败" : e.getMessage();
-                                runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        if (sheetWv != null) {
-                                            sheetWv.evaluateJavascript(
-                                                    "RemotePair.fail(" + JSONObject.quote(msg) + ")", null);
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }).start();
-                }
-            });
-        }
-
-        /** 远程条目编辑: 只改名称和密钥, 中继基址/设备码不动。 */
-        @android.webkit.JavascriptInterface
-        public void saveEditRemote(final String oldUrl, final String name, final String secret) {
-            runOnUiThread(new Runnable() {
-                public void run() {
-                    int idx = indexOf(oldUrl);
-                    if (idx < 0) return;
-                    sp.edit().putString("name_" + idx, name).putString("secret_" + idx, secret).apply();
-                    refreshTabs();
-                    hideSheet();
-                }
-            });
-        }
-
         @android.webkit.JavascriptInterface
         public void remove(final String url) {
             runOnUiThread(new Runnable() { public void run() { removeDevice(url); } });
@@ -632,56 +455,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** 内容页到中继的桥接: 垫片把 fetch 转成这里的 send, 后台跑完再把结果回注入页面。 */
-    public class RemoteBridge {
-        @android.webkit.JavascriptInterface
-        public void send(final String rid, final String method, final String path,
-                         final String headersJson, final String bodyB64) {
-            final String cur = currentUrl();
-            if (!isRelay(cur)) return;
-            final int idx = indexOf(cur);
-            if (idx < 0) return;
-            final String base = relayAt(idx);
-            final String secret = secretAt(idx);
-            final String id = relayId(cur);
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    JSONObject out = new JSONObject();
-                    try {
-                        JSONObject res = RelayTunnel.request(base, id, secret, method, path, headersJson, bodyB64);
-                        out.put("status", res.optInt("status", 200));
-                        out.put("headers", res.optJSONObject("headers") == null
-                                ? new JSONObject() : res.optJSONObject("headers"));
-                        out.put("text", RelayTunnel.decodeBodyText(res));
-                    } catch (RelayTunnel.RelayException e) {
-                        try { out.put("status", 0).put("reason", e.getMessage()); } catch (Exception ignored) { }
-                    } catch (Exception e) {
-                        try { out.put("status", 0).put("reason", "中继错误"); } catch (Exception ignored) { }
-                    }
-                    String payload;
-                    try { payload = out.toString(); } catch (Exception e) { payload = "{\"status\":0,\"reason\":\"中继错误\"}"; }
-                    deliver(rid, payload);
-                }
-            }).start();
-        }
-
-        private void deliver(final String rid, final String json) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    contentWv.evaluateJavascript(
-                            "window.RemoteBridge&&RemoteBridge.onResult("
-                                    + JSONObject.quote(rid) + "," + JSONObject.quote(json) + ")", null);
-                }
-            });
-        }
-    }
-
     public class ErrorBridge {
         @android.webkit.JavascriptInterface
         public void retry(final String url) {
-            runOnUiThread(new Runnable() { public void run() { open(url); } });
+            runOnUiThread(new Runnable() { public void run() { contentWv.loadUrl(url); } });
         }
 
         @android.webkit.JavascriptInterface
