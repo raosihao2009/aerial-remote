@@ -29,20 +29,31 @@ transition:background-color .2s ease;cursor:pointer}
 .item.strong{font-weight:600}
 .item:disabled{color:var(--tertiary)}
 .item:disabled:active{background:none}
+.ptitle{padding:14px 16px 2px;font-size:17px;font-weight:600;color:var(--label)}
+.pdesc{padding:5px 16px 0;font-size:13px;color:var(--secondary);line-height:1.4}
+.field{padding:12px 16px 14px}
 input{width:100%;border:0;background:none;outline:none;font-size:16px;color:var(--label);
-padding:13px 16px;font-family:inherit}
+padding:13px 16px;border-radius:10px;background:var(--fill);font-family:inherit}
 input::placeholder{color:var(--tertiary)}
-.foot{color:var(--secondary);font-size:13px;margin:10px 4px 0;line-height:1.4}
+/* 只有一颗确定按钮时: 不套白卡气泡, 按钮独立成一条。 */
+.btn-alone{border:0;background:var(--card);border-radius:12px;width:100%;padding:14px;font-size:16px;
+font-weight:600;color:var(--tint);cursor:pointer;font-family:inherit}
 </style></head><body>
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet">
 <div class="grab" id="grab"></div>
 <h3 id="title">添加TV设备</h3>
-<div class="list" id="row1"><input id="url" placeholder="设备地址，如 192.168.1.4:8791" inputmode="url"></div>
-<div class="list" id="row2"><input id="name" placeholder="设备名称，如 当贝盒子"></div>
-<div class="foot" id="foot">填写电视局域网地址和名称，地址会自动使用 HTTPS。</div>
-<div class="list" id="btnOk"><button class="item center strong tint" id="ok" disabled>确定</button></div>
-<div class="list" id="btnDel" style="display:none"><button class="item center danger">从列表删除</button></div>
+<div class="list">
+  <div class="ptitle">设备地址</div>
+  <div class="pdesc">填写电视局域网地址，自动补成 HTTPS 与 8791 端口。</div>
+  <div class="field"><input id="url" placeholder="如 192.168.1.4:8791" inputmode="url"></div>
+</div>
+<div class="list">
+  <div class="ptitle">设备名称</div>
+  <div class="pdesc">方便在遥控器里识别这台电视。</div>
+  <div class="field"><input id="name" placeholder="如 当贝盒子"></div>
+</div>
+<div id="btnBox"></div>
 <script>
 var P={};
 location.search.replace(/^\?/,'').split('&').forEach(function(kv){
@@ -71,7 +82,6 @@ function check(){
   }
   var u=norm(urlInput.value);
   ok.disabled=!(u&&nameInput.value.trim());
-  document.getElementById('foot').textContent=u?('将访问 '+u):'填写后自动补成 HTTPS 8791 端口';
 }
 function show(){
   document.getElementById('scrim').classList.add('open');
@@ -82,10 +92,27 @@ function hide(){
   document.getElementById('sheet').classList.remove('open');
   setTimeout(function(){Android.close();},220);
 }
+// 按钮区: 编辑态「确定」「从列表删除」收进同一张气泡; 仅「确定」时按钮独立、不套气泡。
+function buildButtons(){
+  var box=document.getElementById('btnBox');box.innerHTML='';
+  var okBtn=document.createElement('button');
+  okBtn.className='item center strong tint';okBtn.id='ok';okBtn.textContent='确定';
+  if(mode==='edit'){
+    var list=document.createElement('div');list.className='list';
+    var del=document.createElement('button');
+    del.className='item center danger';del.textContent='从列表删除';
+    del.addEventListener('click',function(){Android.remove(P.url);hide();});
+    list.appendChild(okBtn);list.appendChild(del);box.appendChild(list);
+    ok=okBtn;
+  }else{
+    var alone=document.createElement('button');
+    alone.className='btn-alone';alone.id='ok';alone.textContent='确定';
+    box.appendChild(alone);ok=alone;
+  }
+}
+buildButtons();
 if(mode==='edit'){
   document.getElementById('title').textContent='编辑设备';
-  document.getElementById('foot').textContent='地址改了会自动修正端口和协议。';
-  document.getElementById('btnDel').style.display='';
   urlInput.value=P.url||'';
   nameInput.value=P.name||'';
   ok.disabled=!(norm(urlInput.value)&&nameInput.value.trim());
@@ -103,9 +130,6 @@ ok.addEventListener('click',function(){
     Android.save(norm(urlInput.value),nameInput.value.trim());
   }
   hide();
-});
-document.querySelector('#btnDel button').addEventListener('click',function(){
-  Android.remove(P.url);hide();
 });
 document.getElementById('scrim').addEventListener('click',hide);
 var sy=0,dy=0,sheet=document.getElementById('sheet'),grab=document.getElementById('grab');
