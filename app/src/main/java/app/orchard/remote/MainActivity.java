@@ -49,6 +49,10 @@ public class MainActivity extends Activity {
         // 滑到底/顶再拖时, Android 12 会给 WebView 做一段拉伸回弹(overscroll stretch),
         // 整页跟着被拉长, 看着像页面坏了。这颗开关直接把那段效果关掉, 到边就停。
         contentWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // 网页 CSS 藏不住系统 WebView 的视口原生滚动条: 元素级滚轴听 CSS, 整页视口这条由原生 View 画,
+        // 只能在原生侧把纵向/横向滚动条开关关掉, 页面右侧那条长条才会消失。
+        contentWv.setVerticalScrollBarEnabled(false);
+        contentWv.setHorizontalScrollBarEnabled(false);
         contentWv.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
@@ -139,6 +143,8 @@ public class MainActivity extends Activity {
         tabsWv.getSettings().setJavaScriptEnabled(true);
         tabsWv.setBackgroundColor(Color.TRANSPARENT);
         tabsWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        tabsWv.setVerticalScrollBarEnabled(false);
+        tabsWv.setHorizontalScrollBarEnabled(false);
         tabsWv.setWebViewClient(new WebViewClient());
         tabsWv.addJavascriptInterface(new TabsBridge(), "Android");
         FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(
@@ -294,6 +300,8 @@ public class MainActivity extends Activity {
             sheetWv.getSettings().setJavaScriptEnabled(true);
             sheetWv.setBackgroundColor(Color.TRANSPARENT);
             sheetWv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            sheetWv.setVerticalScrollBarEnabled(false);
+            sheetWv.setHorizontalScrollBarEnabled(false);
             sheetWv.setWebViewClient(new WebViewClient());
             sheetWv.addJavascriptInterface(new SheetBridge(), "Android");
         }
